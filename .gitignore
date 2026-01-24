@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+target/
+bin/
+obj/
+.gradle/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.suo
+*.user
+
+# Logs
+logs/
+*.log
+
+# Build outputs
+build/
+dist/
+out/
+
+# OS files
+.DS_Store
+Thumbs.db

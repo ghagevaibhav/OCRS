@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: ocrs-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: Makichu#123
+      MYSQL_DATABASE: project
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docs/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Auth Service (Spring Boot)
+  auth-service:
+    build: ./auth-service
+    container_name: ocrs-auth
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/project
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: Makichu#123
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # Backend Monolith (Spring Boot)
+  backend-monolith:
+    build: ./backend-monolith
+    container_name: ocrs-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/project
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: Makichu#123
+      SERVICES_AUTH_URL: http://auth-service:8081
+      SERVICES_EMAIL_URL: http://email-service:3000
+      SERVICES_LOGGING_URL: http://logging-service:5000
+    depends_on:
+      mysql:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+
+  # Email Service (Node.js)
+  email-service:
+    build: ./email-service
+    container_name: ocrs-email
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      MAILTRAP_HOST: sandbox.smtp.mailtrap.io
+      MAILTRAP_PORT: 2525
+      MAILTRAP_USER: ${MAILTRAP_USER:-your_mailtrap_user}
+      MAILTRAP_PASS: ${MAILTRAP_PASS:-your_mailtrap_password}
+
+  # Logging Service (.NET)
+  logging-service:
+    build: ./logging-service
+    container_name: ocrs-logging
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./logs:/app/logs
+
+  # Frontend (React)
+  frontend:
+    build: ./frontend
+    container_name: ocrs-frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      - auth-service
+      - backend-monolith
+
+volumes:
+  mysql_data:

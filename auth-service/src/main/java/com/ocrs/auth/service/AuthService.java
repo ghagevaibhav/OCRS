@@ -1,0 +1,230 @@
+package com.ocrs.auth.service;
+
+import com.ocrs.auth.dto.*;
+import com.ocrs.auth.entity.Admin;
+import com.ocrs.auth.entity.Authority;
+import com.ocrs.auth.entity.User;
+import com.ocrs.auth.repository.AdminRepository;
+import com.ocrs.auth.repository.AuthorityRepository;
+import com.ocrs.auth.repository.UserRepository;
+import com.ocrs.auth.security.JwtUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class AuthService {
+
+        private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
+
+        @Autowired
+        private UserRepository userRepository;
+
+        @Autowired
+        private AuthorityRepository authorityRepository;
+
+        @Autowired
+        private AdminRepository adminRepository;
+
+        @Autowired
+        private PasswordEncoder passwordEncoder;
+
+        @Autowired
+        private JwtUtils jwtUtils;
+
+        @Autowired
+        private LoggingClient loggingClient;
+
+        @Transactional
+        public ApiResponse<AuthResponse> registerUser(UserRegisterRequest request) {
+                // check if email exists
+                if (userRepository.existsByEmail(request.getEmail())) {
+                        return ApiResponse.error("Email already registered");
+                }
+
+                // check if aadhaar exists (if provided)
+                if (request.getAadhaarNumber() != null &&
+                                userRepository.existsByAadhaarNumber(request.getAadhaarNumber())) {
+                        return ApiResponse.error("Aadhaar number already registered");
+                }
+
+                // create user
+                User user = User.builder()
+                                .email(request.getEmail())
+                                .password(passwordEncoder.encode(request.getPassword()))
+                                .fullName(request.getFullName())
+                                .phone(request.getPhone())
+                                .address(request.getAddress())
+                                .aadhaarNumber(request.getAadhaarNumber())
+                                .build();
+
+                user = userRepository.save(user);
+                logger.info("user registered: {}", user.getEmail());
+
+                // log registration event with user details
+                loggingClient.logAuthEvent("USER_REGISTERED", user.getId(), user.getEmail(),
+                                user.getFullName(), user.getEmail());
+
+                // generate token
+                String token = jwtUtils.generateToken(user.getId(), user.getEmail(), "USER");
+                AuthResponse authResponse = AuthResponse.success(
+                                token, user.getId(), user.getEmail(), user.getFullName(), "USER");
+
+                return ApiResponse.success("User registered successfully", authResponse);
+        }
+
+        @Transactional
+        public ApiResponse<AuthResponse> registerAuthority(AuthorityRegisterRequest request) {
+                // check if email exists
+                if (authorityRepository.existsByEmail(request.getEmail())) {
+                        return ApiResponse.error("Email already registered");
+                }
+
+                // check if badge number exists
+                if (authorityRepository.existsByBadgeNumber(request.getBadgeNumber())) {
+                        return ApiResponse.error("Badge number already registered");
+                }
+
+                // create authority
+                Authority authority = Authority.builder()
+                                .email(request.getEmail())
+                                .password(passwordEncoder.encode(request.getPassword()))
+                                .fullName(request.getFullName())
+                                .badgeNumber(request.getBadgeNumber())
+                                .designation(request.getDesignation())
+                                .stationName(request.getStationName())
+                                .stationAddress(request.getStationAddress())
+                                .phone(request.getPhone())
+                                .build();
+
+                authority = authorityRepository.save(authority);
+                logger.info("authority registered: {}", authority.getEmail());
+
+                // log registration event with authority details
+                loggingClient.logAuthEvent("AUTHORITY_REGISTERED", authority.getId(), authority.getEmail(),
+                                authority.getFullName(), authority.getEmail());
+
+                // generate token
+                String token = jwtUtils.generateToken(authority.getId(), authority.getEmail(), "AUTHORITY");
+                AuthResponse authResponse = AuthResponse.success(
+                                token, authority.getId(), authority.getEmail(), authority.getFullName(), "AUTHORITY");
+
+                return ApiResponse.success("Authority registered successfully", authResponse);
+        }
+
+        public ApiResponse<AuthResponse> login(LoginRequest request) {
+                String role = request.getRole().toUpperCase();
+
+                switch (role) {
+                        case "USER":
+                                return loginUser(request.getEmail(), request.getPassword());
+                        case "AUTHORITY":
+                                return loginAuthority(request.getEmail(), request.getPassword());
+                        case "ADMIN":
+                                return loginAdmin(request.getEmail(), request.getPassword());
+                        default:
+                                return ApiResponse.error("Invalid role specified");
+                }
+        }
+
+        private ApiResponse<AuthResponse> loginUser(String email, String password) {
+                User user = userRepository.findByEmail(email)
+                                .orElse(null);
+
+                if (user == null) {
+                        return ApiResponse.error("Invalid email or password");
+                }
+
+                if (!user.getIsActive()) {
+                        return ApiResponse.error("Account is deactivated");
+                }
+
+                if (!passwordEncoder.matches(password, user.getPassword())) {
+                        return ApiResponse.error("Invalid email or password");
+                }
+
+                String token = jwtUtils.generateToken(user.getId(), user.getEmail(), "USER");
+                AuthResponse authResponse = AuthResponse.success(
+                                token, user.getId(), user.getEmail(), user.getFullName(), "USER");
+
+                logger.info("user logged in: {}", email);
+                // log login event with user details
+                loggingClient.logAuthEvent("LOGIN", user.getId(), "USER:" + email,
+                                user.getFullName(), user.getEmail());
+
+                return ApiResponse.success("Login successful", authResponse);
+        }
+
+        private ApiResponse<AuthResponse> loginAuthority(String email, String password) {
+                Authority authority = authorityRepository.findByEmail(email)
+                                .orElse(null);
+
+                if (authority == null) {
+                        return ApiResponse.error("Invalid email or password");
+                }
+
+                if (!authority.getIsActive()) {
+                        return ApiResponse.error("Account is deactivated");
+                }
+
+                if (!passwordEncoder.matches(password, authority.getPassword())) {
+                        return ApiResponse.error("Invalid email or password");
+                }
+
+                String token = jwtUtils.generateToken(authority.getId(), authority.getEmail(), "AUTHORITY");
+                AuthResponse authResponse = AuthResponse.success(
+                                token, authority.getId(), authority.getEmail(), authority.getFullName(), "AUTHORITY");
+
+                logger.info("authority logged in: {}", email);
+                // log login event with authority details
+                loggingClient.logAuthEvent("LOGIN", authority.getId(), "AUTHORITY:" + email,
+                                authority.getFullName(), authority.getEmail());
+
+                return ApiResponse.success("Login successful", authResponse);
+        }
+
+        private ApiResponse<AuthResponse> loginAdmin(String email, String password) {
+                Admin admin = adminRepository.findByEmail(email)
+                                .orElse(null);
+
+                if (admin == null) {
+                        return ApiResponse.error("Invalid email or password");
+                }
+
+                if (!admin.getIsActive()) {
+                        return ApiResponse.error("Account is deactivated");
+                }
+
+                if (!passwordEncoder.matches(password, admin.getPassword())) {
+                        return ApiResponse.error("Invalid email or password");
+                }
+
+                String token = jwtUtils.generateToken(admin.getId(), admin.getEmail(), "ADMIN");
+                AuthResponse authResponse = AuthResponse.success(
+                                token, admin.getId(), admin.getEmail(), admin.getFullName(), "ADMIN");
+
+                logger.info("admin logged in: {}", email);
+                // log login event with admin details
+                loggingClient.logAuthEvent("ADMIN_LOGIN", admin.getId(), "ADMIN:" + email,
+                                admin.getFullName(), admin.getEmail());
+
+                return ApiResponse.success("Login successful", authResponse);
+        }
+
+        // logout endpoint - logs the logout event
+        public ApiResponse<Boolean> logout(Long userId, String role) {
+                logger.info("{} logged out: userId={}", role, userId);
+                loggingClient.logAuthEvent("LOGOUT", userId, role + ":" + userId);
+                return ApiResponse.success("Logged out successfully", true);
+        }
+
+        public ApiResponse<Boolean> validateToken(String token) {
+                if (jwtUtils.validateToken(token)) {
+                        return ApiResponse.success("Token is valid", true);
+                }
+                return ApiResponse.error("Invalid or expired token");
+        }
+}
