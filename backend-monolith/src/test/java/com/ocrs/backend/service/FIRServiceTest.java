@@ -1,12 +1,12 @@
 package com.ocrs.backend.service;
 
+import com.ocrs.backend.client.AuthServiceClient;
 import com.ocrs.backend.dto.ApiResponse;
+import com.ocrs.backend.dto.AuthorityDTO;
 import com.ocrs.backend.dto.FIRRequest;
 import com.ocrs.backend.dto.UpdateRequest;
-import com.ocrs.backend.entity.Authority;
 import com.ocrs.backend.entity.FIR;
 import com.ocrs.backend.entity.Update;
-import com.ocrs.backend.repository.AuthorityRepository;
 import com.ocrs.backend.repository.FIRRepository;
 import com.ocrs.backend.repository.UpdateRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,7 +25,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-// unit tests for fir service
+/**
+ * Unit tests for FIRService - updated to use AuthServiceClient instead of
+ * AuthorityRepository
+ */
 @ExtendWith(MockitoExtension.class)
 class FIRServiceTest {
 
@@ -33,7 +36,7 @@ class FIRServiceTest {
         private FIRRepository firRepository;
 
         @Mock
-        private AuthorityRepository authorityRepository;
+        private AuthServiceClient authServiceClient;
 
         @Mock
         private UpdateRepository updateRepository;
@@ -46,7 +49,7 @@ class FIRServiceTest {
 
         private FIRRequest firRequest;
         private FIR testFir;
-        private Authority testAuthority;
+        private AuthorityDTO testAuthorityDTO;
 
         @BeforeEach
         void setUp() {
@@ -58,10 +61,11 @@ class FIRServiceTest {
                 firRequest.setIncidentDate(LocalDate.now());
                 firRequest.setIncidentLocation("Test Location");
 
-                // setup test authority
-                testAuthority = Authority.builder()
+                // setup test authority DTO (from Auth service via Feign)
+                testAuthorityDTO = AuthorityDTO.builder()
                                 .id(1L)
                                 .fullName("Test Officer")
+                                .email("officer@test.com")
                                 .isActive(true)
                                 .build();
 
@@ -74,7 +78,7 @@ class FIRServiceTest {
                                 .category(FIR.Category.THEFT)
                                 .title("Test FIR")
                                 .description("Test description")
-                                .status(FIR.Status.ASSIGNED)
+                                .status(FIR.Status.PENDING)
                                 .build();
         }
 
@@ -144,6 +148,8 @@ class FIRServiceTest {
                 when(firRepository.findById(1L)).thenReturn(Optional.of(testFir));
                 when(firRepository.save(any(FIR.class))).thenReturn(testFir);
                 when(updateRepository.save(any(Update.class))).thenReturn(new Update());
+                when(authServiceClient.getAuthorityById(1L))
+                                .thenReturn(ApiResponse.success("Authority found", testAuthorityDTO));
 
                 // act
                 ApiResponse<FIR> response = firService.updateFIRStatus(1L, 1L, updateRequest);
@@ -171,9 +177,14 @@ class FIRServiceTest {
         @Test
         void reassignFIR_success() {
                 // arrange
-                Authority newAuthority = Authority.builder().id(2L).fullName("New Officer").build();
+                AuthorityDTO newAuthorityDTO = AuthorityDTO.builder()
+                                .id(2L)
+                                .fullName("New Officer")
+                                .isActive(true)
+                                .build();
                 when(firRepository.findById(1L)).thenReturn(Optional.of(testFir));
-                when(authorityRepository.findById(2L)).thenReturn(Optional.of(newAuthority));
+                when(authServiceClient.getAuthorityById(2L))
+                                .thenReturn(ApiResponse.success("Authority found", newAuthorityDTO));
                 when(firRepository.save(any(FIR.class))).thenReturn(testFir);
                 when(updateRepository.save(any(Update.class))).thenReturn(new Update());
 
@@ -188,9 +199,9 @@ class FIRServiceTest {
         @Test
         void reassignFIR_sameAuthority_fails() {
                 // arrange
-                Authority sameAuthority = Authority.builder().id(1L).fullName("Test Officer").build();
                 when(firRepository.findById(1L)).thenReturn(Optional.of(testFir));
-                when(authorityRepository.findById(1L)).thenReturn(Optional.of(sameAuthority));
+                when(authServiceClient.getAuthorityById(1L))
+                                .thenReturn(ApiResponse.success("Authority found", testAuthorityDTO));
 
                 // act
                 ApiResponse<FIR> response = firService.reassignFIR(1L, 1L);
@@ -198,5 +209,20 @@ class FIRServiceTest {
                 // assert
                 assertFalse(response.isSuccess());
                 assertEquals("Cannot reassign to the same authority", response.getMessage());
+        }
+
+        @Test
+        void reassignFIR_authorityNotFound() {
+                // arrange
+                when(firRepository.findById(1L)).thenReturn(Optional.of(testFir));
+                when(authServiceClient.getAuthorityById(99L))
+                                .thenReturn(ApiResponse.error("Authority not found"));
+
+                // act
+                ApiResponse<FIR> response = firService.reassignFIR(1L, 99L);
+
+                // assert
+                assertFalse(response.isSuccess());
+                assertEquals("Authority not found", response.getMessage());
         }
 }

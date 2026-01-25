@@ -160,7 +160,6 @@ const AuthorityDashboard = () => {
         const getStatusColor = (status) => {
                 const colors = {
                         PENDING: 'bg-yellow-100 text-yellow-800',
-                        ASSIGNED: 'bg-blue-100 text-blue-800',
                         UNDER_INVESTIGATION: 'bg-purple-100 text-purple-800',
                         RESOLVED: 'bg-green-100 text-green-800',
                         CLOSED: 'bg-gray-100 text-gray-800',
@@ -193,8 +192,8 @@ const AuthorityDashboard = () => {
                         <div className="flex gap-4 mb-6 border-b border-gray-200">
                                 <button
                                         className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${activeTab === 'firs'
-                                                        ? 'border-primary-600 text-primary-600'
-                                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                                ? 'border-primary-600 text-primary-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700'
                                                 }`}
                                         onClick={() => setActiveTab('firs')}
                                 >
@@ -202,8 +201,8 @@ const AuthorityDashboard = () => {
                                 </button>
                                 <button
                                         className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${activeTab === 'missing'
-                                                        ? 'border-primary-600 text-primary-600'
-                                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                                ? 'border-primary-600 text-primary-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700'
                                                 }`}
                                         onClick={() => setActiveTab('missing')}
                                 >

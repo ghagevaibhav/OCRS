@@ -36,12 +36,20 @@ public interface FIRRepository extends JpaRepository<FIR, Long> {
 
         Long countByAuthorityId(Long authorityId);
 
+        /**
+         * Count active (non-closed, non-resolved) FIRs for a given authority.
+         * Used for load balancing in auto-assignment.
+         */
+        @Query("SELECT COUNT(f) FROM FIR f WHERE f.authorityId = :authorityId " +
+                        "AND f.status NOT IN ('RESOLVED', 'CLOSED', 'REJECTED')")
+        long countActiveByAuthorityId(Long authorityId);
+
         Long countByAuthorityIdAndStatus(Long authorityId, FIR.Status status);
 
         @Query("SELECT f.status, COUNT(f) FROM FIR f WHERE f.authorityId = :authorityId GROUP BY f.status")
         List<Object[]> countGroupByStatusByAuthority(Long authorityId);
 
-        @Query("SELECT a.fullName, COUNT(f) FROM FIR f JOIN Authority a ON f.authorityId = a.id GROUP BY a.fullName")
+        @Query("SELECT f.authorityId, COUNT(f) FROM FIR f WHERE f.authorityId IS NOT NULL GROUP BY f.authorityId")
         List<Object[]> countGroupByOfficer();
 
         @Query("SELECT f FROM FIR f WHERE f.authorityId = :authorityId " +

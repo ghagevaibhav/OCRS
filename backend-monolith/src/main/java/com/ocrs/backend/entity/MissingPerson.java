@@ -84,6 +84,6 @@ public class MissingPerson {
         }
 
         public enum MissingStatus {
-                PENDING, ASSIGNED, SEARCHING, MISSING, FOUND, CLOSED
+                PENDING, SEARCHING, MISSING, FOUND, CLOSED
         }
 }

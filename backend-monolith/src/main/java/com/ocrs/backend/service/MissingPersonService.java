@@ -1,12 +1,12 @@
 package com.ocrs.backend.service;
 
+import com.ocrs.backend.client.AuthServiceClient;
 import com.ocrs.backend.dto.ApiResponse;
+import com.ocrs.backend.dto.AuthorityDTO;
 import com.ocrs.backend.dto.MissingPersonRequest;
 import com.ocrs.backend.dto.UpdateRequest;
-import com.ocrs.backend.entity.Authority;
 import com.ocrs.backend.entity.MissingPerson;
 import com.ocrs.backend.entity.Update;
-import com.ocrs.backend.repository.AuthorityRepository;
 import com.ocrs.backend.repository.MissingPersonRepository;
 import com.ocrs.backend.repository.UpdateRepository;
 import org.slf4j.Logger;
@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-
 import java.util.UUID;
 
 @Service
@@ -30,7 +29,7 @@ public class MissingPersonService {
         private MissingPersonRepository missingPersonRepository;
 
         @Autowired
-        private AuthorityRepository authorityRepository;
+        private AuthServiceClient authServiceClient;
 
         @Autowired
         private UpdateRepository updateRepository;
@@ -38,15 +37,62 @@ public class MissingPersonService {
         @Autowired
         private ExternalServiceClient externalServiceClient;
 
+        /**
+         * Helper method to get authority name from Auth service via Feign
+         */
+        private String getAuthorityName(Long authorityId) {
+                if (authorityId == null) {
+                        return null;
+                }
+                try {
+                        ApiResponse<AuthorityDTO> response = authServiceClient.getAuthorityById(authorityId);
+                        if (response.isSuccess() && response.getData() != null) {
+                                return response.getData().getFullName();
+                        }
+                } catch (Exception e) {
+                        logger.warn("Failed to fetch authority name for ID {}: {}", authorityId, e.getMessage());
+                }
+                return "Authority #" + authorityId;
+        }
+
+        /**
+         * Helper method to check if authority exists via Feign
+         */
+        private boolean authorityExists(Long authorityId) {
+                if (authorityId == null) {
+                        return false;
+                }
+                try {
+                        ApiResponse<AuthorityDTO> response = authServiceClient.getAuthorityById(authorityId);
+                        return response.isSuccess() && response.getData() != null;
+                } catch (Exception e) {
+                        logger.warn("Failed to check authority existence for ID {}: {}", authorityId, e.getMessage());
+                        return false;
+                }
+        }
+
         @Transactional
         public ApiResponse<MissingPerson> fileReport(Long userId, MissingPersonRequest request) {
                 try {
                         String caseNumber = "MP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
+                        // Auto-assign to authority with least active cases
+                        Long authorityId = findLeastLoadedAuthority();
+                        String authorityName = null;
+
+                        if (authorityId != null) {
+                                authorityName = getAuthorityName(authorityId);
+                                logger.info("Auto-assigning report {} to authority {} (ID: {})", caseNumber,
+                                                authorityName, authorityId);
+                        } else {
+                                logger.warn("No active authorities available - report {} will be unassigned",
+                                                caseNumber);
+                        }
+
                         MissingPerson missingPerson = MissingPerson.builder()
                                         .caseNumber(caseNumber)
                                         .userId(userId)
-                                        .authorityId(null)
+                                        .authorityId(authorityId)
                                         .missingPersonName(request.getMissingPersonName())
                                         .age(request.getAge())
                                         .gender(request.getGender() != null
@@ -66,16 +112,52 @@ public class MissingPersonService {
                                         .build();
 
                         missingPerson = missingPersonRepository.save(missingPerson);
-                        logger.info("Missing person report filed: {} by user {}", caseNumber, userId);
+                        logger.info("Missing person report filed: {} by user {}, assigned to authority: {} ({})",
+                                        caseNumber, userId, authorityName, authorityId);
 
                         externalServiceClient.sendEmailNotification(userId, "Missing Person Report Filed",
-                                        "Your missing person report " + caseNumber + " has been filed successfully.");
+                                        "Your missing person report " + caseNumber + " has been filed successfully." +
+                                                        (authorityName != null ? " Assigned to: " + authorityName
+                                                                        : ""));
                         externalServiceClient.logEvent("MISSING_PERSON_FILED", userId, caseNumber);
 
                         return ApiResponse.success("Missing person report filed successfully", missingPerson);
                 } catch (Exception e) {
                         logger.error("Error filing missing person report: ", e);
                         return ApiResponse.error("Failed to file report: " + e.getMessage());
+                }
+        }
+
+        /**
+         * Find the authority with the least number of active cases.
+         * Uses load balancing to distribute reports evenly across authorities.
+         */
+        private Long findLeastLoadedAuthority() {
+                try {
+                        ApiResponse<List<AuthorityDTO>> response = authServiceClient.getActiveAuthorities();
+
+                        if (!response.isSuccess() || response.getData() == null || response.getData().isEmpty()) {
+                                logger.warn("No active authorities found for auto-assignment");
+                                return null;
+                        }
+
+                        List<AuthorityDTO> activeAuthorities = response.getData();
+                        Long leastLoadedAuthority = null;
+                        long minCases = Long.MAX_VALUE;
+
+                        for (AuthorityDTO authority : activeAuthorities) {
+                                long activeCases = missingPersonRepository.countActiveByAuthorityId(authority.getId());
+
+                                if (activeCases < minCases) {
+                                        minCases = activeCases;
+                                        leastLoadedAuthority = authority.getId();
+                                }
+                        }
+
+                        return leastLoadedAuthority;
+                } catch (Exception e) {
+                        logger.error("Error finding least loaded authority: {}", e.getMessage());
+                        return null;
                 }
         }
 
@@ -110,13 +192,12 @@ public class MissingPersonService {
                         return ApiResponse.error("Report not found");
                 }
 
-                if (!report.getAuthorityId().equals(authorityId)) {
+                if (report.getAuthorityId() == null || !report.getAuthorityId().equals(authorityId)) {
                         return ApiResponse.error("You are not authorized to update this report");
                 }
 
-                // Get authority details for notifications
-                Authority authority = authorityRepository.findById(authorityId).orElse(null);
-                String authorityName = authority != null ? authority.getFullName() : "Unknown Authority";
+                // Get authority details for notifications via Feign
+                String authorityName = getAuthorityName(authorityId);
 
                 String previousStatus = report.getStatus().name();
 
@@ -181,14 +262,17 @@ public class MissingPersonService {
                         return ApiResponse.error("Report not found");
                 }
 
-                Authority authority = authorityRepository.findById(newAuthorityId).orElse(null);
-                if (authority == null) {
+                // Verify authority exists via Feign
+                if (!authorityExists(newAuthorityId)) {
                         return ApiResponse.error("Authority not found");
                 }
 
-                if (report.getAuthorityId().equals(newAuthorityId)) {
+                if (report.getAuthorityId() != null && report.getAuthorityId().equals(newAuthorityId)) {
                         return ApiResponse.error("Cannot reassign to the same authority");
                 }
+
+                // Get authority name via Feign
+                String authorityName = getAuthorityName(newAuthorityId);
 
                 Long previousAuthorityId = report.getAuthorityId();
                 report.setAuthorityId(newAuthorityId);
@@ -206,7 +290,7 @@ public class MissingPersonService {
 
                 externalServiceClient.sendEmailNotification(report.getUserId(), "Missing Person Report Reassigned",
                                 "Your report " + report.getCaseNumber() + " has been reassigned to a new officer: "
-                                                + authority.getFullName());
+                                                + authorityName);
 
                 // Log the reassignment event
                 externalServiceClient.logEvent("MISSING_PERSON_REASSIGNED", newAuthorityId, report.getCaseNumber(),

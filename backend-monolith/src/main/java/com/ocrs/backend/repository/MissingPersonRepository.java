@@ -31,6 +31,14 @@ public interface MissingPersonRepository extends JpaRepository<MissingPerson, Lo
 
         Long countByAuthorityId(Long authorityId);
 
+        /**
+         * Count active (non-found, non-closed) reports for a given authority.
+         * Used for load balancing in auto-assignment.
+         */
+        @Query("SELECT COUNT(m) FROM MissingPerson m WHERE m.authorityId = :authorityId " +
+                        "AND m.status NOT IN ('FOUND', 'CLOSED')")
+        long countActiveByAuthorityId(Long authorityId);
+
         Long countByAuthorityIdAndStatus(Long authorityId, MissingPerson.MissingStatus status);
 
         @Query("SELECT m.status, COUNT(m) FROM MissingPerson m WHERE m.authorityId = :authorityId GROUP BY m.status")

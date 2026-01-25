@@ -1,12 +1,12 @@
 package com.ocrs.backend.service;
 
+import com.ocrs.backend.client.AuthServiceClient;
 import com.ocrs.backend.dto.ApiResponse;
+import com.ocrs.backend.dto.AuthorityDTO;
 import com.ocrs.backend.dto.FIRRequest;
 import com.ocrs.backend.dto.UpdateRequest;
-import com.ocrs.backend.entity.Authority;
 import com.ocrs.backend.entity.FIR;
 import com.ocrs.backend.entity.Update;
-import com.ocrs.backend.repository.AuthorityRepository;
 import com.ocrs.backend.repository.FIRRepository;
 import com.ocrs.backend.repository.UpdateRepository;
 import org.slf4j.Logger;
@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-
 import java.util.UUID;
 
 @Service
@@ -30,7 +29,7 @@ public class FIRService {
         private FIRRepository firRepository;
 
         @Autowired
-        private AuthorityRepository authorityRepository;
+        private AuthServiceClient authServiceClient;
 
         @Autowired
         private UpdateRepository updateRepository;
@@ -38,20 +37,62 @@ public class FIRService {
         @Autowired
         private ExternalServiceClient externalServiceClient;
 
+        /**
+         * Helper method to get authority name from Auth service via Feign
+         */
+        private String getAuthorityName(Long authorityId) {
+                if (authorityId == null) {
+                        return null;
+                }
+                try {
+                        ApiResponse<AuthorityDTO> response = authServiceClient.getAuthorityById(authorityId);
+                        if (response.isSuccess() && response.getData() != null) {
+                                return response.getData().getFullName();
+                        }
+                } catch (Exception e) {
+                        logger.warn("Failed to fetch authority name for ID {}: {}", authorityId, e.getMessage());
+                }
+                return "Authority #" + authorityId;
+        }
+
+        /**
+         * Helper method to check if authority exists via Feign
+         */
+        private boolean authorityExists(Long authorityId) {
+                if (authorityId == null) {
+                        return false;
+                }
+                try {
+                        ApiResponse<AuthorityDTO> response = authServiceClient.getAuthorityById(authorityId);
+                        return response.isSuccess() && response.getData() != null;
+                } catch (Exception e) {
+                        logger.warn("Failed to check authority existence for ID {}: {}", authorityId, e.getMessage());
+                        return false;
+                }
+        }
+
         @Transactional
         public ApiResponse<FIR> fileFIR(Long userId, FIRRequest request) {
                 try {
                         // Generate unique FIR number
                         String firNumber = "FIR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
-                        // No initial assignment - Admin must assign
-                        Long authorityId = null;
+                        // Auto-assign to authority with least active cases
+                        Long authorityId = findLeastLoadedAuthority();
                         String authorityName = null;
+
+                        if (authorityId != null) {
+                                authorityName = getAuthorityName(authorityId);
+                                logger.info("Auto-assigning FIR {} to authority {} (ID: {})", firNumber, authorityName,
+                                                authorityId);
+                        } else {
+                                logger.warn("No active authorities available - FIR {} will be unassigned", firNumber);
+                        }
 
                         FIR fir = FIR.builder()
                                         .firNumber(firNumber)
                                         .userId(userId)
-                                        .authorityId(null)
+                                        .authorityId(authorityId)
                                         .category(FIR.Category.valueOf(request.getCategory().toUpperCase()))
                                         .title(request.getTitle())
                                         .description(request.getDescription())
@@ -77,6 +118,49 @@ public class FIRService {
                 } catch (Exception e) {
                         logger.error("Error filing FIR: ", e);
                         return ApiResponse.error("Failed to file FIR: " + e.getMessage());
+                }
+        }
+
+        /**
+         * Find the authority with the least number of active (non-resolved) cases.
+         * Uses load balancing to distribute FIRs evenly across authorities.
+         */
+        private Long findLeastLoadedAuthority() {
+                try {
+                        // Get all active authorities from Auth service via Feign
+                        ApiResponse<List<AuthorityDTO>> response = authServiceClient.getActiveAuthorities();
+
+                        if (!response.isSuccess() || response.getData() == null || response.getData().isEmpty()) {
+                                logger.warn("No active authorities found for auto-assignment");
+                                return null;
+                        }
+
+                        List<AuthorityDTO> activeAuthorities = response.getData();
+
+                        // Find authority with minimum active cases
+                        Long leastLoadedAuthority = null;
+                        long minCases = Long.MAX_VALUE;
+
+                        for (AuthorityDTO authority : activeAuthorities) {
+                                // Count active (non-closed, non-resolved) FIRs for this authority
+                                long activeCases = firRepository.countActiveByAuthorityId(authority.getId());
+
+                                logger.debug("Authority {} (ID: {}) has {} active cases",
+                                                authority.getFullName(), authority.getId(), activeCases);
+
+                                if (activeCases < minCases) {
+                                        minCases = activeCases;
+                                        leastLoadedAuthority = authority.getId();
+                                }
+                        }
+
+                        logger.info("Least loaded authority ID: {} with {} active cases", leastLoadedAuthority,
+                                        minCases);
+                        return leastLoadedAuthority;
+
+                } catch (Exception e) {
+                        logger.error("Error finding least loaded authority: {}", e.getMessage());
+                        return null;
                 }
         }
 
@@ -112,13 +196,12 @@ public class FIRService {
                 }
 
                 // Verify authority is assigned to this FIR
-                if (!fir.getAuthorityId().equals(authorityId)) {
+                if (fir.getAuthorityId() == null || !fir.getAuthorityId().equals(authorityId)) {
                         return ApiResponse.error("You are not authorized to update this FIR");
                 }
 
-                // Get authority details for notifications
-                Authority authority = authorityRepository.findById(authorityId).orElse(null);
-                String authorityName = authority != null ? authority.getFullName() : "Unknown Authority";
+                // Get authority details for notifications via Feign
+                String authorityName = getAuthorityName(authorityId);
 
                 String previousStatus = fir.getStatus().name();
 
@@ -182,14 +265,17 @@ public class FIRService {
                         return ApiResponse.error("FIR not found");
                 }
 
-                Authority authority = authorityRepository.findById(newAuthorityId).orElse(null);
-                if (authority == null) {
+                // Verify authority exists via Feign
+                if (!authorityExists(newAuthorityId)) {
                         return ApiResponse.error("Authority not found");
                 }
 
-                if (fir.getAuthorityId().equals(newAuthorityId)) {
+                if (fir.getAuthorityId() != null && fir.getAuthorityId().equals(newAuthorityId)) {
                         return ApiResponse.error("Cannot reassign to the same authority");
                 }
+
+                // Get authority name via Feign
+                String authorityName = getAuthorityName(newAuthorityId);
 
                 Long previousAuthorityId = fir.getAuthorityId();
                 fir.setAuthorityId(newAuthorityId);
@@ -208,7 +294,7 @@ public class FIRService {
                 // Send email notification to user about reassignment
                 externalServiceClient.sendEmailNotification(fir.getUserId(), "FIR Reassigned",
                                 "Your FIR " + fir.getFirNumber() + " has been reassigned to a new officer: "
-                                                + authority.getFullName());
+                                                + authorityName);
 
                 // Log the reassignment event
                 externalServiceClient.logEvent("FIR_REASSIGNED", newAuthorityId, fir.getFirNumber(),

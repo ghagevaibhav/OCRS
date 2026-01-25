@@ -79,7 +79,7 @@ public class FIR {
         }
 
         public enum Status {
-                PENDING, ASSIGNED, UNDER_INVESTIGATION, RESOLVED, CLOSED, REJECTED
+                PENDING, UNDER_INVESTIGATION, RESOLVED, CLOSED, REJECTED
         }
 
         public enum Priority {

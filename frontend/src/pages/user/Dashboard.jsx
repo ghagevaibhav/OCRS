@@ -88,7 +88,7 @@ const Dashboard = () => {
                                 </Card>
                                 <Card className="text-center">
                                         <p className="text-3xl font-bold text-yellow-600">
-                                                {stats.firs.filter(f => f.status === 'PENDING' || f.status === 'ASSIGNED').length}
+                                                {stats.firs.filter(f => f.status === 'PENDING').length}
                                         </p>
                                         <p className="text-sm text-gray-500">Pending FIRs</p>
                                 </Card>

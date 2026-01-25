@@ -145,6 +145,7 @@ public class LogController : ControllerBase
 
             case "ADMIN_ACTION":
             case "AUTHORITY_CREATED":
+            case "AUTHORITY_UPDATED":
             case "AUTHORITY_DELETED":
             case "CASE_REASSIGNED":
                 var adminActionDetails = !string.IsNullOrEmpty(request.Message)
@@ -205,6 +206,8 @@ public class LogController : ControllerBase
                 lockObj = _firLogLock;
                 break;
 
+
+
             default:
                 // Default to user auth log for unknown event types
                 message = $"{timestamp} - {eventType} - User ID: {request.UserId}, {request.Message ?? request.Reference ?? "No details"}";
@@ -212,6 +215,13 @@ public class LogController : ControllerBase
                 category = "general";
                 lockObj = _userLogLock;
                 break;
+        }
+
+        // DUAL LOGGING: If it's an Authority Update on a Case, ALSO log to Authority Log
+        if (eventType == "FIR_UPDATED" || eventType == "MISSING_PERSON_UPDATED")
+        {
+             string authMessage = $"{timestamp} - Authority Action - {request.Message ?? eventType}";
+             WriteToLogFileThreadSafe(_logPaths.AuthorityLog, authMessage, _authorityLogLock);
         }
 
         return (message, filePath, category, lockObj);

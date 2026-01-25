@@ -75,11 +75,14 @@ export const adminService = {
         getAnalytics: () => mainApi.get('/admin/analytics'),
         getAllFIRs: () => mainApi.get('/admin/firs'),
         getAllMissingReports: () => mainApi.get('/admin/missing-reports'),
+        // Authority read operations go through backend (which fetches via Feign)
         getAuthorities: () => mainApi.get('/admin/authorities'),
         getActiveAuthorities: () => mainApi.get('/admin/authorities/active'),
-        updateAuthority: (id, data) => mainApi.put(`/admin/authority/${id}`, data),
-        deleteAuthority: (id) => mainApi.delete(`/admin/authority/${id}`),
+        // Authority CRUD operations go directly to Auth Service
+        createAuthority: (data) => authApi.post('/auth/register/authority', data),
+        updateAuthority: (id, data) => authApi.put(`/authority/${id}`, data),
+        deleteAuthority: (id) => authApi.delete(`/authority/${id}`),
+        // Case reassignment
         reassignFIR: (firId, authorityId) => mainApi.put(`/admin/fir/${firId}/reassign/${authorityId}`),
         reassignMissingReport: (reportId, authorityId) => mainApi.put(`/admin/missing/${reportId}/reassign/${authorityId}`),
-        createAuthority: (data) => mainApi.post('/admin/authority', data),
 }

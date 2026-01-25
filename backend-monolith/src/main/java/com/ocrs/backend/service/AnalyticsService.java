@@ -1,12 +1,16 @@
 package com.ocrs.backend.service;
 
+import com.ocrs.backend.client.AuthServiceClient;
 import com.ocrs.backend.dto.AuthorityAnalyticsResponse;
 import com.ocrs.backend.dto.AnalyticsResponse;
+import com.ocrs.backend.dto.ApiResponse;
+import com.ocrs.backend.dto.AuthorityDTO;
 import com.ocrs.backend.entity.FIR;
 import com.ocrs.backend.entity.MissingPerson;
-import com.ocrs.backend.repository.AuthorityRepository;
 import com.ocrs.backend.repository.FIRRepository;
 import com.ocrs.backend.repository.MissingPersonRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +21,8 @@ import java.util.Map;
 @Service
 public class AnalyticsService {
 
+        private static final Logger logger = LoggerFactory.getLogger(AnalyticsService.class);
+
         @Autowired
         private FIRRepository firRepository;
 
@@ -24,10 +30,9 @@ public class AnalyticsService {
         private MissingPersonRepository missingPersonRepository;
 
         @Autowired
-        private AuthorityRepository authorityRepository;
+        private AuthServiceClient authServiceClient;
 
         public AnalyticsResponse getAnalytics() {
-                // ... (existing code remains same)
                 // FIR counts
                 Long totalFirs = firRepository.count();
                 Long pendingFirs = firRepository.countByStatus(FIR.Status.PENDING);
@@ -37,8 +42,8 @@ public class AnalyticsService {
                 Long totalMissingPersons = missingPersonRepository.count();
                 Long foundPersons = missingPersonRepository.countByStatus(MissingPerson.MissingStatus.FOUND);
 
-                // Authority count (only active)
-                Long totalAuthorities = authorityRepository.countByIsActiveTrue();
+                // Authority count - fetch from Auth service via Feign
+                Long totalAuthorities = getActiveAuthorityCount();
 
                 // FIRs by category
                 Map<String, Long> firsByCategory = new HashMap<>();
@@ -61,11 +66,13 @@ public class AnalyticsService {
                         missingByStatus.put(row[0].toString(), (Long) row[1]);
                 }
 
-                // Top authorities by case count (FIRs)
+                // Top authorities by case count (FIRs) - uses FIR data, not authority table
                 Map<String, Long> topAuthorities = new HashMap<>();
                 List<Object[]> officerData = firRepository.countGroupByOfficer();
                 for (Object[] row : officerData) {
-                        topAuthorities.put(row[0].toString(), (Long) row[1]);
+                        if (row[0] != null) {
+                                topAuthorities.put(row[0].toString(), (Long) row[1]);
+                        }
                 }
 
                 return AnalyticsResponse.builder()
@@ -80,6 +87,21 @@ public class AnalyticsService {
                                 .missingByStatus(missingByStatus)
                                 .topAuthorities(topAuthorities)
                                 .build();
+        }
+
+        /**
+         * Get active authority count from Auth service via Feign
+         */
+        private Long getActiveAuthorityCount() {
+                try {
+                        ApiResponse<List<AuthorityDTO>> response = authServiceClient.getActiveAuthorities();
+                        if (response.isSuccess() && response.getData() != null) {
+                                return (long) response.getData().size();
+                        }
+                } catch (Exception e) {
+                        logger.warn("Failed to get authority count from Auth service: {}", e.getMessage());
+                }
+                return 0L;
         }
 
         public AuthorityAnalyticsResponse getAuthorityAnalytics(Long authorityId) {

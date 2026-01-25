@@ -1,28 +1,35 @@
 package com.ocrs.backend.controller;
 
+import com.ocrs.backend.client.AuthServiceClient;
 import com.ocrs.backend.dto.AnalyticsResponse;
 import com.ocrs.backend.dto.ApiResponse;
-import com.ocrs.backend.dto.AuthorityRegisterRequest;
-import com.ocrs.backend.entity.Authority;
+import com.ocrs.backend.dto.AuthorityDTO;
 import com.ocrs.backend.entity.FIR;
 import com.ocrs.backend.entity.MissingPerson;
-import com.ocrs.backend.entity.User;
-import com.ocrs.backend.repository.AuthorityRepository;
-import com.ocrs.backend.repository.UserRepository;
 import com.ocrs.backend.service.AnalyticsService;
+import com.ocrs.backend.service.ExternalServiceClient;
 import com.ocrs.backend.service.FIRService;
 import com.ocrs.backend.service.MissingPersonService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * Admin Controller for managing FIRs, Missing Person reports, and viewing
+ * authorities.
+ * Note: Authority creation/update/delete should be done via Auth Service
+ * directly.
+ * This controller now only reads authority data via Feign for display purposes.
+ */
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
+
+        private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
 
         @Autowired
         private FIRService firService;
@@ -34,47 +41,10 @@ public class AdminController {
         private AnalyticsService analyticsService;
 
         @Autowired
-        private AuthorityRepository authorityRepository;
+        private AuthServiceClient authServiceClient;
 
         @Autowired
-        private UserRepository userRepository;
-
-        @Autowired
-        private PasswordEncoder passwordEncoder;
-
-        @PostMapping("/authority")
-        @Transactional
-        public ResponseEntity<ApiResponse<Authority>> createAuthority(
-                        @RequestBody AuthorityRegisterRequest request) {
-                if (userRepository.existsByEmail(request.getEmail())) {
-                        return ResponseEntity.badRequest().body(ApiResponse.error("Email already registered"));
-                }
-
-                User user = User.builder()
-                                .email(request.getEmail())
-                                .password(passwordEncoder.encode(request.getPassword()))
-                                .role(User.Role.AUTHORITY)
-                                .fullName(request.getFullName())
-                                .phone(request.getPhone()) // Mapping phone to User as well for consistency
-                                .build();
-                User savedUser = userRepository.save(user);
-
-                Authority authority = Authority.builder()
-                                .id(savedUser.getId())
-                                .email(request.getEmail())
-                                .password(passwordEncoder.encode(request.getPassword()))
-                                .fullName(request.getFullName())
-                                .badgeNumber(request.getBadgeNumber())
-                                .designation(request.getDesignation())
-                                .stationName(request.getStationName())
-                                .stationAddress(request.getStationAddress())
-                                .phone(request.getPhone())
-                                .isActive(true)
-                                .build();
-
-                Authority savedAuth = authorityRepository.save(authority);
-                return ResponseEntity.ok(ApiResponse.success("Authority created successfully", savedAuth));
-        }
+        private ExternalServiceClient externalServiceClient;
 
         // Analytics
         @GetMapping("/analytics")
@@ -120,52 +90,71 @@ public class AdminController {
                 return response.isSuccess() ? ResponseEntity.ok(response) : ResponseEntity.badRequest().body(response);
         }
 
-        // Authority Management
+        // Authority Management - Read only via Feign (write operations go to Auth
+        // Service)
         @GetMapping("/authorities")
-        public ResponseEntity<List<Authority>> getAllAuthorities() {
-                return ResponseEntity.ok(authorityRepository.findAll());
+        public ResponseEntity<ApiResponse<List<AuthorityDTO>>> getAllAuthorities() {
+                try {
+                        ApiResponse<List<AuthorityDTO>> response = authServiceClient.getAllAuthorities();
+                        return ResponseEntity.ok(response);
+                } catch (Exception e) {
+                        logger.error("Failed to fetch authorities from Auth service: {}", e.getMessage());
+                        return ResponseEntity.ok(ApiResponse.error("Failed to fetch authorities"));
+                }
         }
 
         @GetMapping("/authorities/active")
-        public ResponseEntity<List<Authority>> getActiveAuthorities() {
-                return ResponseEntity.ok(authorityRepository.findByIsActiveTrue());
+        public ResponseEntity<ApiResponse<List<AuthorityDTO>>> getActiveAuthorities() {
+                try {
+                        ApiResponse<List<AuthorityDTO>> response = authServiceClient.getActiveAuthorities();
+                        return ResponseEntity.ok(response);
+                } catch (Exception e) {
+                        logger.error("Failed to fetch active authorities from Auth service: {}", e.getMessage());
+                        return ResponseEntity.ok(ApiResponse.error("Failed to fetch authorities"));
+                }
         }
 
         @GetMapping("/authority/{id}")
-        public ResponseEntity<ApiResponse<Authority>> getAuthority(@PathVariable Long id) {
-                return authorityRepository.findById(id)
-                                .map(auth -> ResponseEntity.ok(ApiResponse.success("Authority found", auth)))
-                                .orElse(ResponseEntity.badRequest().body(ApiResponse.error("Authority not found")));
+        public ResponseEntity<ApiResponse<AuthorityDTO>> getAuthority(@PathVariable Long id) {
+                try {
+                        ApiResponse<AuthorityDTO> response = authServiceClient.getAuthorityById(id);
+                        return ResponseEntity.ok(response);
+                } catch (Exception e) {
+                        logger.error("Failed to fetch authority from Auth service: {}", e.getMessage());
+                        return ResponseEntity.ok(ApiResponse.error("Failed to fetch authority"));
+                }
         }
 
+        /**
+         * @deprecated Authority creation should be done via Auth Service directly.
+         *             This endpoint is kept for backward compatibility but redirects to
+         *             Auth Service.
+         */
+        @PostMapping("/authority")
+        @Deprecated
+        public ResponseEntity<ApiResponse<Void>> createAuthority(@RequestBody Object request) {
+                return ResponseEntity.badRequest()
+                                .body(ApiResponse.error(
+                                                "Authority creation should be done via Auth Service at /api/auth/authority/register"));
+        }
+
+        /**
+         * @deprecated Authority updates should be done via Auth Service directly.
+         */
         @PutMapping("/authority/{id}")
-        public ResponseEntity<ApiResponse<Authority>> updateAuthority(
-                        @PathVariable Long id,
-                        @RequestBody Authority updatedAuth) {
-                return authorityRepository.findById(id)
-                                .map(auth -> {
-                                        auth.setFullName(updatedAuth.getFullName());
-                                        auth.setDesignation(updatedAuth.getDesignation());
-                                        auth.setStationName(updatedAuth.getStationName());
-                                        auth.setStationAddress(updatedAuth.getStationAddress());
-                                        auth.setPhone(updatedAuth.getPhone());
-                                        auth.setIsActive(updatedAuth.getIsActive());
-                                        Authority saved = authorityRepository.save(auth);
-                                        return ResponseEntity.ok(
-                                                        ApiResponse.success("Authority updated successfully", saved));
-                                })
-                                .orElse(ResponseEntity.badRequest().body(ApiResponse.error("Authority not found")));
+        @Deprecated
+        public ResponseEntity<ApiResponse<Void>> updateAuthority(@PathVariable Long id, @RequestBody Object request) {
+                return ResponseEntity.badRequest()
+                                .body(ApiResponse.error("Authority updates should be done via Auth Service"));
         }
 
+        /**
+         * @deprecated Authority deletion should be done via Auth Service directly.
+         */
         @DeleteMapping("/authority/{id}")
+        @Deprecated
         public ResponseEntity<ApiResponse<Void>> deleteAuthority(@PathVariable Long id) {
-                return authorityRepository.findById(id)
-                                .map(auth -> {
-                                        auth.setIsActive(false);
-                                        authorityRepository.save(auth);
-                                        return ResponseEntity.ok(ApiResponse
-                                                        .<Void>success("Authority deactivated successfully", null));
-                                })
-                                .orElse(ResponseEntity.badRequest().body(ApiResponse.error("Authority not found")));
+                return ResponseEntity.badRequest()
+                                .body(ApiResponse.error("Authority deletion should be done via Auth Service"));
         }
 }

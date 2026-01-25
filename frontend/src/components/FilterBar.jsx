@@ -42,7 +42,6 @@ const FilterBar = ({
         const firStatuses = [
                 { value: '', label: 'All Status' },
                 { value: 'PENDING', label: 'Pending' },
-                { value: 'ASSIGNED', label: 'Assigned' },
                 { value: 'UNDER_INVESTIGATION', label: 'Under Investigation' },
                 { value: 'RESOLVED', label: 'Resolved' },
                 { value: 'CLOSED', label: 'Closed' },
@@ -52,7 +51,6 @@ const FilterBar = ({
         const missingStatuses = [
                 { value: '', label: 'All Status' },
                 { value: 'PENDING', label: 'Pending' },
-                { value: 'ASSIGNED', label: 'Assigned' },
                 { value: 'SEARCHING', label: 'Searching' },
                 { value: 'FOUND', label: 'Found' },
                 { value: 'CLOSED', label: 'Closed' }

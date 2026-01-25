@@ -11,7 +11,6 @@ ChartJS.register(ArcElement, Tooltip, Legend)
 
 const statusColors = {
         PENDING: '#EAB308',
-        ASSIGNED: '#3B82F6',
         UNDER_INVESTIGATION: '#8B5CF6',
         RESOLVED: '#22C55E',
         CLOSED: '#6B7280',

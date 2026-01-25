@@ -50,7 +50,6 @@ const UpdateModal = ({
         const firStatuses = [
                 { value: '', label: 'Select Status' },
                 { value: 'PENDING', label: 'Pending' },
-                { value: 'ASSIGNED', label: 'Assigned' },
                 { value: 'UNDER_INVESTIGATION', label: 'Under Investigation' },
                 { value: 'RESOLVED', label: 'Resolved' },
                 { value: 'CLOSED', label: 'Closed' },
@@ -60,7 +59,6 @@ const UpdateModal = ({
         const missingStatuses = [
                 { value: '', label: 'Select Status' },
                 { value: 'PENDING', label: 'Pending' },
-                { value: 'ASSIGNED', label: 'Assigned' },
                 { value: 'SEARCHING', label: 'Searching' },
                 { value: 'FOUND', label: 'Found' },
                 { value: 'CLOSED', label: 'Closed' }
