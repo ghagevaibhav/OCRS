@@ -16,14 +16,14 @@ public class Admin {
         @GeneratedValue(strategy = GenerationType.IDENTITY)
         private Long id;
 
+        @Column(name = "full_name", nullable = false)
+        private String fullName;
+
         @Column(nullable = false, unique = true)
         private String email;
 
         @Column(nullable = false)
         private String password;
-
-        @Column(name = "full_name", nullable = false)
-        private String fullName;
 
         @Builder.Default
         private String role = "SUPER_ADMIN";

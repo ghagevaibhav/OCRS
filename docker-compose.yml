@@ -25,7 +25,6 @@ services:
       - "3307:3306"
     volumes:
       - auth_db_data:/var/lib/mysql
-      - ./docs/auth-schema.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s
@@ -39,10 +38,9 @@ services:
       MYSQL_ROOT_PASSWORD: Makichu#123
       MYSQL_DATABASE: ocrs_backend
     ports:
-      - "3306:3306"
+      - "3308:3306"
     volumes:
       - backend_db_data:/var/lib/mysql
-      - ./docs/backend-schema.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s

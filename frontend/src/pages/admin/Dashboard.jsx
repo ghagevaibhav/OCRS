@@ -57,11 +57,12 @@ const AdminDashboard = () => {
                                 adminService.getAnalytics(),
                                 adminService.getAllFIRs(),
                                 adminService.getAllMissingReports(),
-                                adminService.getActiveAuthorities()
+                                adminService.getAuthorities()
                         ])
                         setAnalytics(analyticsRes.data)
                         setFirs(firsRes.data || [])
-                        setAuthorities(authRes.data || [])
+                        // Authorities API returns ApiResponse<List>, extract nested data
+                        setAuthorities(authRes.data?.data || [])
                         setMissingReports(missingRes.data || [])
                 } catch (error) {
                         console.error('Error loading dashboard data:', error)
@@ -511,7 +512,7 @@ const AdminDashboard = () => {
                                                         label="Assign to Officer"
                                                         value={reassignData.authorityId}
                                                         onChange={(e) => setReassignData({ ...reassignData, authorityId: e.target.value })}
-                                                        options={authorities.filter(a => a.isActive).map(a => ({
+                                                        options={(Array.isArray(authorities) ? authorities : []).filter(a => a.isActive !== false).map(a => ({
                                                                 value: a.id,
                                                                 label: `${a.fullName} (${a.designation || 'Officer'})`
                                                         }))}

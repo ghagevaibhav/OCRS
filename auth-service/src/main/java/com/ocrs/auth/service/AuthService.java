@@ -227,4 +227,56 @@ public class AuthService {
                 }
                 return ApiResponse.error("Invalid or expired token");
         }
+
+        public ApiResponse<AuthorityDTO> updateAuthority(Long id, AuthorityDTO request) {
+                Authority authority = authorityRepository.findById(id).orElse(null);
+                if (authority == null) {
+                        return ApiResponse.error("Authority not found");
+                }
+
+                if (request.getFullName() != null)
+                        authority.setFullName(request.getFullName());
+                if (request.getBadgeNumber() != null)
+                        authority.setBadgeNumber(request.getBadgeNumber());
+                if (request.getDesignation() != null)
+                        authority.setDesignation(request.getDesignation());
+                if (request.getStationName() != null)
+                        authority.setStationName(request.getStationName());
+                if (request.getStationAddress() != null)
+                        authority.setStationAddress(request.getStationAddress());
+                if (request.getPhone() != null)
+                        authority.setPhone(request.getPhone());
+
+                authority = authorityRepository.save(authority);
+                loggingClient.logAuthEvent("AUTHORITY_UPDATED", authority.getId(), authority.getEmail());
+
+                return ApiResponse.success("Authority updated successfully", mapToAuthorityDTO(authority));
+        }
+
+        public ApiResponse<Boolean> deleteAuthority(Long id) {
+                Authority authority = authorityRepository.findById(id).orElse(null);
+                if (authority == null) {
+                        return ApiResponse.error("Authority not found");
+                }
+
+                authority.setIsActive(false);
+                authorityRepository.save(authority);
+                loggingClient.logAuthEvent("AUTHORITY_DELETED", authority.getId(), authority.getEmail());
+
+                return ApiResponse.success("Authority deactivated successfully", true);
+        }
+
+        private AuthorityDTO mapToAuthorityDTO(Authority authority) {
+                return AuthorityDTO.builder()
+                                .id(authority.getId())
+                                .email(authority.getEmail())
+                                .fullName(authority.getFullName())
+                                .badgeNumber(authority.getBadgeNumber())
+                                .designation(authority.getDesignation())
+                                .stationName(authority.getStationName())
+                                .stationAddress(authority.getStationAddress())
+                                .phone(authority.getPhone())
+                                .isActive(authority.getIsActive())
+                                .build();
+        }
 }

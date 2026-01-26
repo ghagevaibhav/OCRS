@@ -30,7 +30,12 @@ const DatePicker = ({ label, value, onChange, name, max, min, required, classNam
         const handleDateSelect = (day) => {
                 const selectedDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day)
                 if (selectedDate <= maxDate) {
-                        const formatted = selectedDate.toISOString().split('T')[0]
+                        // Format as YYYY-MM-DD using local time
+                        const year = selectedDate.getFullYear()
+                        const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
+                        const dayStr = String(selectedDate.getDate()).padStart(2, '0')
+                        const formatted = `${year}-${month}-${dayStr}`
+
                         onChange({ target: { name, value: formatted } })
                         setIsOpen(false)
                 }

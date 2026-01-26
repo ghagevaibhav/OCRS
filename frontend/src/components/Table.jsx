@@ -11,9 +11,12 @@ const Table = ({
 }) => {
         const [searchTerm, setSearchTerm] = useState('');
 
+        // Ensure data is an array
+        const safeData = Array.isArray(data) ? data : [];
+
         const filteredData = searchTerm.trim() === ''
-                ? data
-                : data?.filter(item => {
+                ? safeData
+                : safeData.filter(item => {
                         // Search through all string/number values of the object
                         return Object.entries(item).some(([key, val]) => {
                                 // Skip null/undefined values and non-searchable fields

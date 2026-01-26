@@ -22,4 +22,6 @@ public class AnalyticsResponse {
         private Map<String, Long> firsByStatus;
         private Map<String, Long> missingByStatus;
         private Map<String, Long> topAuthorities;
+        private Double averageResolutionTime;
+        private Double firGrowthRate;
 }

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -60,4 +61,9 @@ public interface FIRRepository extends JpaRepository<FIR, Long> {
                         "AND (:status IS NULL OR f.status = :status)")
         Page<FIR> searchByAuthority(Long authorityId, String search, FIR.Category category,
                         FIR.Priority priority, FIR.Status status, Pageable pageable);
+
+        @Query(value = "SELECT AVG(TIMESTAMPDIFF(HOUR, created_at, updated_at)) FROM firs WHERE status = 'RESOLVED'", nativeQuery = true)
+        Double getAverageResolutionTimeInHours();
+
+        long countByCreatedAtAfter(LocalDateTime date);
 }

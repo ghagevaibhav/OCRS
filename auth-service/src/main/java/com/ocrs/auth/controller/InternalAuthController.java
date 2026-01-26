@@ -86,7 +86,6 @@ public class InternalAuthController {
                 logger.debug("Internal API: Fetching all authorities");
 
                 List<AuthorityDTO> authorities = authorityRepository.findAll().stream()
-                                .filter(Authority::getIsActive)
                                 .map(this::mapToAuthorityDTO)
                                 .collect(Collectors.toList());
 

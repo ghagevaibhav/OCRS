@@ -7,9 +7,9 @@ const TimePicker = ({ label, value, onChange, name, className = '' }) => {
         // Parse current value (HH:MM format)
         const [hours, minutes] = value ? value.split(':') : ['', '']
 
-        // Generate hour options (00-23) and minute options (00-59 in 5 min intervals)
+        // Generate hour options (00-23) and minute options (00-59)
         const hourOptions = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
-        const minuteOptions = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'))
+        const minuteOptions = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'))
 
         const handleTimeChange = (type, val) => {
                 const newHours = type === 'hours' ? val : (hours || '12')

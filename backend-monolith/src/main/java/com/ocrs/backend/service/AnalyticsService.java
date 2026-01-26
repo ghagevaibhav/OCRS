@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,14 +67,38 @@ public class AnalyticsService {
                         missingByStatus.put(row[0].toString(), (Long) row[1]);
                 }
 
-                // Top authorities by case count (FIRs) - uses FIR data, not authority table
+                // Top authorities by case count (FIRs) - resolve authority IDs to names
                 Map<String, Long> topAuthorities = new HashMap<>();
                 List<Object[]> officerData = firRepository.countGroupByOfficer();
                 for (Object[] row : officerData) {
                         if (row[0] != null) {
-                                topAuthorities.put(row[0].toString(), (Long) row[1]);
+                                Long authorityId = (Long) row[0];
+                                Long count = (Long) row[1];
+                                String officerName = getAuthorityName(authorityId);
+                                topAuthorities.put(officerName, count);
                         }
                 }
+
+                // Calculate Average Resolution Time
+                Double avgResTimeHours = firRepository.getAverageResolutionTimeInHours();
+                // Convert to days, default to 0.0
+                Double averageResolutionTime = avgResTimeHours != null ? avgResTimeHours / 24.0 : 0.0;
+                // Round to 1 decimal place
+                averageResolutionTime = Math.round(averageResolutionTime * 10.0) / 10.0;
+
+                // Calculate FIR Growth Rate (Last 30 days vs Previous 30 days)
+                LocalDateTime now = LocalDateTime.now();
+                long last30Days = firRepository.countByCreatedAtAfter(now.minusDays(30));
+                long last60Days = firRepository.countByCreatedAtAfter(now.minusDays(60));
+                long previous30Days = last60Days - last30Days;
+
+                Double firGrowthRate = 0.0;
+                if (previous30Days > 0) {
+                        firGrowthRate = ((double) (last30Days - previous30Days) / previous30Days) * 100;
+                } else if (last30Days > 0) {
+                        firGrowthRate = 100.0; // 100% growth if started from 0
+                }
+                firGrowthRate = Math.round(firGrowthRate * 10.0) / 10.0;
 
                 return AnalyticsResponse.builder()
                                 .totalFirs(totalFirs)
@@ -86,6 +111,8 @@ public class AnalyticsService {
                                 .firsByStatus(firsByStatus)
                                 .missingByStatus(missingByStatus)
                                 .topAuthorities(topAuthorities)
+                                .averageResolutionTime(averageResolutionTime)
+                                .firGrowthRate(firGrowthRate)
                                 .build();
         }
 
@@ -102,6 +129,21 @@ public class AnalyticsService {
                         logger.warn("Failed to get authority count from Auth service: {}", e.getMessage());
                 }
                 return 0L;
+        }
+
+        /**
+         * Get authority name by ID from Auth service via Feign
+         */
+        private String getAuthorityName(Long authorityId) {
+                try {
+                        ApiResponse<AuthorityDTO> response = authServiceClient.getAuthorityById(authorityId);
+                        if (response.isSuccess() && response.getData() != null) {
+                                return response.getData().getFullName();
+                        }
+                } catch (Exception e) {
+                        logger.warn("Failed to get authority name for ID {}: {}", authorityId, e.getMessage());
+                }
+                return "Officer #" + authorityId;
         }
 
         public AuthorityAnalyticsResponse getAuthorityAnalytics(Long authorityId) {

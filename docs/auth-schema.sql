@@ -56,21 +56,3 @@ CREATE TABLE IF NOT EXISTS admins (
     is_active BOOLEAN DEFAULT TRUE,
     INDEX idx_admins_email (email)
 );
-
--- =============================================
--- SEED DATA
--- =============================================
-
--- Admin (password: Admin@123)
-INSERT INTO admins (email, password, full_name, role) VALUES
-('admin@ocrs.gov.in', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/0qk1P.F0KvhHFW2dTDWw.', 'System Administrator', 'SUPER_ADMIN');
-
--- Authorities (password: Auth@123)
-INSERT INTO authorities (email, password, full_name, badge_number, designation, station_name, station_address, phone) VALUES
-('officer1@police.gov.in', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/0qk1P.F0KvhHFW2dTDWw.', 'Inspector Sharma', 'MH-001', 'Sub Inspector', 'Pune Central Police Station', 'Pune, Maharashtra', '9876543210'),
-('officer2@police.gov.in', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/0qk1P.F0KvhHFW2dTDWw.', 'Inspector Patil', 'MH-002', 'Inspector', 'Mumbai Cyber Cell', 'Mumbai, Maharashtra', '9876543211'),
-('officer3@police.gov.in', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/0qk1P.F0KvhHFW2dTDWw.', 'Inspector Deshmukh', 'MH-003', 'Sub Inspector', 'Nashik Police Station', 'Nashik, Maharashtra', '9876543212');
-
--- Test User (password: User@123)
-INSERT INTO users (email, password, full_name, phone, address, aadhaar_number) VALUES
-('testuser@gmail.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/0qk1P.F0KvhHFW2dTDWw.', 'Test User', '9999999999', 'Test Address, Pune', '123456789012');

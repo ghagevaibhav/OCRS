@@ -108,7 +108,9 @@ const Analytics = () => {
                                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total FIRs</p>
                                         <div className="flex items-end gap-2">
                                                 <p className="text-3xl font-bold text-slate-800">{analytics?.totalFirs || 0}</p>
-                                                <span className="text-green-500 text-xs font-semibold mb-1">↑ 12%</span>
+                                                <span className={`${(analytics?.firGrowthRate || 0) >= 0 ? 'text-green-500' : 'text-red-500'} text-xs font-semibold mb-1`}>
+                                                        {(analytics?.firGrowthRate || 0) >= 0 ? '↑' : '↓'} {Math.abs(analytics?.firGrowthRate || 0)}%
+                                                </span>
                                         </div>
                                 </Card>
                                 <Card className="border-l-4 border-emerald-500">
@@ -123,7 +125,7 @@ const Analytics = () => {
                                 <Card className="border-l-4 border-orange-500">
                                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Avg Res Time</p>
                                         <div className="flex items-end gap-2">
-                                                <p className="text-3xl font-bold text-slate-800">4.2</p>
+                                                <p className="text-3xl font-bold text-slate-800">{analytics?.averageResolutionTime || 0}</p>
                                                 <span className="text-slate-400 text-xs mb-1">days</span>
                                         </div>
                                 </Card>
