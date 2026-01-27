@@ -16,15 +16,17 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
+/*
  * Internal API Controller for service-to-service communication.
  * These endpoints are not meant for external clients but for
  * other microservices (backend-service) to fetch user/authority data.
- */
+*/
+
 @RestController
 @RequestMapping("/api/internal")
 public class InternalAuthController {
 
+        // logger for debugging purposes
         private static final Logger logger = LoggerFactory.getLogger(InternalAuthController.class);
 
         @Autowired
@@ -33,9 +35,7 @@ public class InternalAuthController {
         @Autowired
         private AuthorityRepository authorityRepository;
 
-        /**
-         * Get user details by ID
-         */
+        // get user details by id
         @GetMapping("/users/{id}")
         public ResponseEntity<ApiResponse<UserDTO>> getUserById(@PathVariable Long id) {
                 logger.debug("Internal API: Fetching user with id: {}", id);
@@ -48,9 +48,7 @@ public class InternalAuthController {
                                 .orElse(ResponseEntity.ok(ApiResponse.error("User not found")));
         }
 
-        /**
-         * Get user details by email
-         */
+        // get user details by email
         @GetMapping("/users/email/{email}")
         public ResponseEntity<ApiResponse<UserDTO>> getUserByEmail(@PathVariable String email) {
                 logger.debug("Internal API: Fetching user with email: {}", email);
@@ -63,9 +61,7 @@ public class InternalAuthController {
                                 .orElse(ResponseEntity.ok(ApiResponse.error("User not found")));
         }
 
-        /**
-         * Get authority details by ID
-         */
+        // get authority details by id
         @GetMapping("/authorities/{id}")
         public ResponseEntity<ApiResponse<AuthorityDTO>> getAuthorityById(@PathVariable Long id) {
                 logger.debug("Internal API: Fetching authority with id: {}", id);
@@ -78,9 +74,7 @@ public class InternalAuthController {
                                 .orElse(ResponseEntity.ok(ApiResponse.error("Authority not found")));
         }
 
-        /**
-         * Get all authorities (for admin panel dropdown, etc.)
-         */
+        // get all authorities -> for admin panel dropdown
         @GetMapping("/authorities")
         public ResponseEntity<ApiResponse<List<AuthorityDTO>>> getAllAuthorities() {
                 logger.debug("Internal API: Fetching all authorities");
@@ -92,9 +86,7 @@ public class InternalAuthController {
                 return ResponseEntity.ok(ApiResponse.success("Authorities retrieved", authorities));
         }
 
-        /**
-         * Get all active authorities
-         */
+        // get all active authorities -> for admin panel manage authorities section
         @GetMapping("/authorities/active")
         public ResponseEntity<ApiResponse<List<AuthorityDTO>>> getActiveAuthorities() {
                 logger.debug("Internal API: Fetching active authorities");
@@ -106,7 +98,7 @@ public class InternalAuthController {
                 return ResponseEntity.ok(ApiResponse.success("Active authorities retrieved", authorities));
         }
 
-        // Helper methods to map entities to DTOs
+        // helper methods to map entities to DTOs
         private UserDTO mapToUserDTO(User user) {
                 return UserDTO.builder()
                                 .id(user.getId())

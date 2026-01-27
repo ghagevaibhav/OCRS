@@ -14,36 +14,27 @@ import java.util.List;
  * Uses Eureka service discovery to find auth-service instances.
  * Falls back to AuthServiceFallback when auth-service is unavailable.
  */
+
 @FeignClient(name = "auth-service", fallbackFactory = AuthServiceFallbackFactory.class)
 public interface AuthServiceClient {
 
-        /**
-         * Get user details by ID
-         */
+        // Get user details by ID
         @GetMapping("/api/internal/users/{id}")
         ApiResponse<UserDTO> getUserById(@PathVariable("id") Long id);
 
-        /**
-         * Get user details by email
-         */
+        // Get user details by email
         @GetMapping("/api/internal/users/email/{email}")
         ApiResponse<UserDTO> getUserByEmail(@PathVariable("email") String email);
 
-        /**
-         * Get authority details by ID
-         */
+        // Get authority details by ID
         @GetMapping("/api/internal/authorities/{id}")
         ApiResponse<AuthorityDTO> getAuthorityById(@PathVariable("id") Long id);
 
-        /**
-         * Get all authorities
-         */
+        // Get all authorities
         @GetMapping("/api/internal/authorities")
         ApiResponse<List<AuthorityDTO>> getAllAuthorities();
 
-        /**
-         * Get all active authorities
-         */
+        // Get all active authorities
         @GetMapping("/api/internal/authorities/active")
         ApiResponse<List<AuthorityDTO>> getActiveAuthorities();
 }

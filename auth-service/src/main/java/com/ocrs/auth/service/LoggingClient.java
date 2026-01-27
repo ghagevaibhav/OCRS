@@ -9,7 +9,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.util.HashMap;
 import java.util.Map;
 
-// client for communicating with external services like logging
+// client for communicating with external logger service
 @Service
 public class LoggingClient {
 
@@ -24,7 +24,7 @@ public class LoggingClient {
                 this.webClient = webClientBuilder.build();
         }
 
-        // Basic auth event logging (backward compatible)
+        // basic auth event logging
         public void logAuthEvent(String eventType, Long userId, String reference) {
                 logAuthEvent(eventType, userId, reference, null, null);
         }
