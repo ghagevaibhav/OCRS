@@ -5,6 +5,7 @@ import com.ocrs.backend.dto.ApiResponse;
 import com.ocrs.backend.dto.AuthorityDTO;
 import com.ocrs.backend.dto.FIRRequest;
 import com.ocrs.backend.dto.UpdateRequest;
+import com.ocrs.backend.dto.UserDTO;
 import com.ocrs.backend.entity.FIR;
 import com.ocrs.backend.entity.Update;
 import com.ocrs.backend.repository.FIRRepository;
@@ -36,6 +37,24 @@ public class FIRService {
 
         @Autowired
         private ExternalServiceClient externalServiceClient;
+
+        /**
+         * Helper method to get user's email from Auth service via Feign
+         */
+        private String getUserEmail(Long userId) {
+                if (userId == null) {
+                        return null;
+                }
+                try {
+                        ApiResponse<UserDTO> response = authServiceClient.getUserById(userId);
+                        if (response.isSuccess() && response.getData() != null) {
+                                return response.getData().getEmail();
+                        }
+                } catch (Exception e) {
+                        logger.warn("Failed to fetch user email for ID {}: {}", userId, e.getMessage());
+                }
+                return null;
+        }
 
         /**
          * Helper method to get authority name from Auth service via Feign
@@ -111,7 +130,10 @@ public class FIRService {
                                         authorityName, authorityId);
 
                         // Notify external services with FIR number and authority details
-                        externalServiceClient.sendFirFiledNotification(userId, firNumber, authorityId, authorityName);
+                        // Fetch user's email for notification
+                        String userEmail = getUserEmail(userId);
+                        externalServiceClient.sendFirFiledNotification(userId, userEmail, firNumber, authorityId,
+                                        authorityName);
                         externalServiceClient.logEvent("FIR_FILED", userId, firNumber);
 
                         return ApiResponse.success("FIR filed successfully", fir);
@@ -224,9 +246,11 @@ public class FIRService {
                 updateRepository.save(update);
 
                 // Send detailed FIR update notification to user
+                // Fetch user's email for notification
+                String userEmail = getUserEmail(fir.getUserId());
                 externalServiceClient.sendFirUpdateNotification(
                                 fir.getUserId(),
-                                null, // userEmail - will be looked up by email service
+                                userEmail,
                                 fir.getFirNumber(),
                                 request.getUpdateType(),
                                 fir.getStatus().name(),
@@ -292,7 +316,8 @@ public class FIRService {
                 updateRepository.save(update);
 
                 // Send email notification to user about reassignment
-                externalServiceClient.sendEmailNotification(fir.getUserId(), "FIR Reassigned",
+                String userEmail = getUserEmail(fir.getUserId());
+                externalServiceClient.sendEmailNotification(fir.getUserId(), userEmail, "FIR Reassigned",
                                 "Your FIR " + fir.getFirNumber() + " has been reassigned to a new officer: "
                                                 + authorityName);
 

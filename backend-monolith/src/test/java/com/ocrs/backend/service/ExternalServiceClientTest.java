@@ -68,8 +68,8 @@ public class ExternalServiceClientTest {
                 webClientField.set(targetService, webClient);
 
                 // Execute the method
-                CompletableFuture<Void> future = externalServiceClient.sendEmailNotification(1L, "Test Subject",
-                                "Test Message");
+                CompletableFuture<Void> future = externalServiceClient.sendEmailNotification(1L,
+                                "test@example.com", "Test Subject", "Test Message");
 
                 // Wait for future to complete (should complete normally due to fallback
                 // returning null)

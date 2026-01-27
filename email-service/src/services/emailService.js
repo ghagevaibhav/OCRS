@@ -1,16 +1,33 @@
 const nodemailer = require('nodemailer');
 
-// Create transporter with Mailtrap configuration
+// Create transporter with Mailtrap SMTP configuration
+// Matches Mailtrap's provided SMTP integration code exactly
 const createTransporter = () => {
     return nodemailer.createTransport({
-        host: process.env.MAILTRAP_HOST || 'sandbox.smtp.mailtrap.io',
-        port: parseInt(process.env.MAILTRAP_PORT) || 2525,
+        host: process.env.SMTP_HOST || 'live.smtp.mailtrap.io',
+        port: parseInt(process.env.SMTP_PORT) || 587,
         auth: {
-            user: process.env.MAILTRAP_USER || 'your_mailtrap_user',
-            pass: process.env.MAILTRAP_PASS || 'your_mailtrap_password'
+            user: process.env.SMTP_USER || 'api',
+            pass: process.env.SMTP_PASS
         }
     });
 };
+
+// Verify transporter connection on startup
+const verifyTransporter = async () => {
+    try {
+        const transporter = createTransporter();
+        await transporter.verify();
+        console.log(`[${new Date().toISOString()}] SMTP connection verified successfully`);
+        return true;
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] SMTP connection verification failed:`, error.message);
+        return false;
+    }
+};
+
+// Call verification on module load (non-blocking)
+verifyTransporter();
 
 // Retry queue for failed emails
 const failedEmailQueue = [];
@@ -145,7 +162,7 @@ const sendEmail = async (to, templateName, data, retryCount = 0) => {
         const template = templates[templateName] ? templates[templateName](data) : templates.generic(data);
 
         const mailOptions = {
-            from: `"${process.env.FROM_NAME || 'OCRS System'}" <${process.env.FROM_EMAIL || 'noreply@ocrs.gov.in'}>`,
+            from: `"${process.env.SMTP_FROM_NAME || 'OCRS System'}" <${process.env.SMTP_FROM_EMAIL || 'noreply@ghagevaibhav.xyz'}>`,
             to: to,
             subject: template.subject,
             html: template.html

@@ -97,10 +97,15 @@ services:
       - "3000:3000"
     environment:
       PORT: 3000
-      MAILTRAP_HOST: sandbox.smtp.mailtrap.io
-      MAILTRAP_PORT: 2525
-      MAILTRAP_USER: ${MAILTRAP_USER:-your_mailtrap_user}
-      MAILTRAP_PASS: ${MAILTRAP_PASS:-your_mailtrap_password}
+      # Mailtrap Production SMTP Configuration
+      SMTP_HOST: ${SMTP_HOST:-live.smtp.mailtrap.io}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      # Sender Configuration (ghagevaibhav.in domain)
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@ghagevaibhav.xyz}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-OCRS System}
 
   # Logging Service (.NET)
   logging-service:

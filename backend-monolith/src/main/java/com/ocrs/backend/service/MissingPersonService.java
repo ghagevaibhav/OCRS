@@ -5,6 +5,7 @@ import com.ocrs.backend.dto.ApiResponse;
 import com.ocrs.backend.dto.AuthorityDTO;
 import com.ocrs.backend.dto.MissingPersonRequest;
 import com.ocrs.backend.dto.UpdateRequest;
+import com.ocrs.backend.dto.UserDTO;
 import com.ocrs.backend.entity.MissingPerson;
 import com.ocrs.backend.entity.Update;
 import com.ocrs.backend.repository.MissingPersonRepository;
@@ -36,6 +37,24 @@ public class MissingPersonService {
 
         @Autowired
         private ExternalServiceClient externalServiceClient;
+
+        /**
+         * Helper method to get user's email from Auth service via Feign
+         */
+        private String getUserEmail(Long userId) {
+                if (userId == null) {
+                        return null;
+                }
+                try {
+                        ApiResponse<UserDTO> response = authServiceClient.getUserById(userId);
+                        if (response.isSuccess() && response.getData() != null) {
+                                return response.getData().getEmail();
+                        }
+                } catch (Exception e) {
+                        logger.warn("Failed to fetch user email for ID {}: {}", userId, e.getMessage());
+                }
+                return null;
+        }
 
         /**
          * Helper method to get authority name from Auth service via Feign
@@ -115,7 +134,9 @@ public class MissingPersonService {
                         logger.info("Missing person report filed: {} by user {}, assigned to authority: {} ({})",
                                         caseNumber, userId, authorityName, authorityId);
 
-                        externalServiceClient.sendEmailNotification(userId, "Missing Person Report Filed",
+                        // Fetch user's email for notification
+                        String userEmail = getUserEmail(userId);
+                        externalServiceClient.sendEmailNotification(userId, userEmail, "Missing Person Report Filed",
                                         "Your missing person report " + caseNumber + " has been filed successfully." +
                                                         (authorityName != null ? " Assigned to: " + authorityName
                                                                         : ""));
@@ -288,7 +309,10 @@ public class MissingPersonService {
 
                 updateRepository.save(update);
 
-                externalServiceClient.sendEmailNotification(report.getUserId(), "Missing Person Report Reassigned",
+                // Fetch user's email for notification
+                String userEmail = getUserEmail(report.getUserId());
+                externalServiceClient.sendEmailNotification(report.getUserId(), userEmail,
+                                "Missing Person Report Reassigned",
                                 "Your report " + report.getCaseNumber() + " has been reassigned to a new officer: "
                                                 + authorityName);
 

@@ -43,25 +43,34 @@ public class ExternalServiceClient {
         @Async
         @Retry(name = "emailService", fallbackMethod = "emailFallback")
         @CircuitBreaker(name = "emailService", fallbackMethod = "emailFallback")
-        public CompletableFuture<Void> sendEmailNotification(Long userId, String subject, String message) {
+        public CompletableFuture<Void> sendEmailNotification(Long userId, String userEmail, String subject,
+                        String message) {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("userId", userId);
+                if (userEmail != null) {
+                        payload.put("email", userEmail);
+                }
+                payload.put("subject", subject);
+                payload.put("message", message);
+                payload.put("timestamp", System.currentTimeMillis());
+
                 return sendPostRequest(
                                 emailServiceUrl + "/api/notify",
-                                Map.of(
-                                                "userId", userId,
-                                                "subject", subject,
-                                                "message", message,
-                                                "timestamp", System.currentTimeMillis()),
-                                () -> logger.info("email notification sent: {}", subject));
+                                payload,
+                                () -> logger.info("email notification sent: {} to {}", subject, userEmail));
         }
 
         // FIR filed notification with FIR number and authority details
         @Async
         @Retry(name = "emailService", fallbackMethod = "firFiledEmailFallback")
         @CircuitBreaker(name = "emailService", fallbackMethod = "firFiledEmailFallback")
-        public CompletableFuture<Void> sendFirFiledNotification(Long userId, String firNumber, Long authorityId,
-                        String authorityName) {
+        public CompletableFuture<Void> sendFirFiledNotification(Long userId, String userEmail, String firNumber,
+                        Long authorityId, String authorityName) {
                 Map<String, Object> payload = new HashMap<>();
                 payload.put("userId", userId);
+                if (userEmail != null) {
+                        payload.put("email", userEmail);
+                }
                 payload.put("subject", "FIR Filed Successfully - " + firNumber);
                 payload.put("firNumber", firNumber);
                 payload.put("authorityId", authorityId);
@@ -72,7 +81,9 @@ public class ExternalServiceClient {
                 return sendPostRequest(
                                 emailServiceUrl + "/api/notify",
                                 payload,
-                                () -> logger.info("FIR filed notification sent for {} to user {}", firNumber, userId));
+                                () -> logger.info("FIR filed notification sent for {} to user {} ({})", firNumber,
+                                                userId,
+                                                userEmail));
         }
 
         // Enhanced FIR update notification with detailed information
@@ -104,15 +115,17 @@ public class ExternalServiceClient {
                                 () -> logger.info("FIR update notification sent for {} to user {}", firNumber, userId));
         }
 
-        public CompletableFuture<Void> emailFallback(Long userId, String subject, String message, Exception e) {
-                logger.warn("email service unavailable, skipping notification for user {}: {}", userId, subject);
+        public CompletableFuture<Void> emailFallback(Long userId, String userEmail, String subject, String message,
+                        Exception e) {
+                logger.warn("email service unavailable, skipping notification for user {} ({}): {}", userId, userEmail,
+                                subject);
                 return CompletableFuture.completedFuture(null);
         }
 
-        public CompletableFuture<Void> firFiledEmailFallback(Long userId, String firNumber, Long authorityId,
-                        String authorityName, Exception e) {
-                logger.warn("email service unavailable, skipping FIR filed notification for FIR {} to user {}",
-                                firNumber, userId);
+        public CompletableFuture<Void> firFiledEmailFallback(Long userId, String userEmail, String firNumber,
+                        Long authorityId, String authorityName, Exception e) {
+                logger.warn("email service unavailable, skipping FIR filed notification for FIR {} to user {} ({})",
+                                firNumber, userId, userEmail);
                 return CompletableFuture.completedFuture(null);
         }
 
