@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ToastProvider } from './components/Toast'
 
 // Auth Pages - Role-specific
 import UserSignIn from './pages/auth/user/UserSignIn'
@@ -98,7 +99,9 @@ function AppRoutes() {
 function App() {
         return (
                 <AuthProvider>
-                        <AppRoutes />
+                        <ToastProvider>
+                                <AppRoutes />
+                        </ToastProvider>
                 </AuthProvider>
         )
 }

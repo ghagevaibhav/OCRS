@@ -28,6 +28,7 @@ public class FIRRequest {
         @NotNull(message = "Incident date is required")
         private LocalDate incidentDate;
 
+        @NotNull(message = "Incident time is required")
         private LocalTime incidentTime;
 
         @NotBlank(message = "Incident location is required")

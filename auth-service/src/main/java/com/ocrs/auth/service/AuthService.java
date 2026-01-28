@@ -3,7 +3,9 @@ package com.ocrs.auth.service;
 import com.ocrs.auth.dto.*;
 import com.ocrs.auth.entity.Admin;
 import com.ocrs.auth.entity.Authority;
+import com.ocrs.auth.entity.RefreshToken;
 import com.ocrs.auth.entity.User;
+import com.ocrs.auth.exception.TokenRefreshException;
 import com.ocrs.auth.repository.AdminRepository;
 import com.ocrs.auth.repository.AuthorityRepository;
 import com.ocrs.auth.repository.UserRepository;
@@ -11,6 +13,7 @@ import com.ocrs.auth.security.JwtUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
         private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
+
+        @Value("${jwt.expiration:3600000}") // 1 hour default
+        private long accessTokenExpirationMs;
 
         @Autowired
         private UserRepository userRepository;
@@ -34,6 +40,9 @@ public class AuthService {
 
         @Autowired
         private JwtUtils jwtUtils;
+
+        @Autowired
+        private RefreshTokenService refreshTokenService;
 
         @Autowired
         private LoggingClient loggingClient;
@@ -68,10 +77,13 @@ public class AuthService {
                 loggingClient.logAuthEvent("USER_REGISTERED", user.getId(), user.getEmail(),
                                 user.getFullName(), user.getEmail());
 
-                // generate token
-                String token = jwtUtils.generateToken(user.getId(), user.getEmail(), "USER");
+                // generate tokens
+                String accessToken = jwtUtils.generateToken(user.getId(), user.getEmail(), "USER");
+                RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId(), "USER");
+
                 AuthResponse authResponse = AuthResponse.success(
-                                token, user.getId(), user.getEmail(), user.getFullName(), "USER");
+                                accessToken, refreshToken.getToken(), user.getId(), user.getEmail(),
+                                user.getFullName(), "USER", accessTokenExpirationMs / 1000);
 
                 return ApiResponse.success("User registered successfully", authResponse);
         }
@@ -107,10 +119,13 @@ public class AuthService {
                 loggingClient.logAuthEvent("AUTHORITY_REGISTERED", authority.getId(), authority.getEmail(),
                                 authority.getFullName(), authority.getEmail());
 
-                // generate token
-                String token = jwtUtils.generateToken(authority.getId(), authority.getEmail(), "AUTHORITY");
+                // generate tokens
+                String accessToken = jwtUtils.generateToken(authority.getId(), authority.getEmail(), "AUTHORITY");
+                RefreshToken refreshToken = refreshTokenService.createRefreshToken(authority.getId(), "AUTHORITY");
+
                 AuthResponse authResponse = AuthResponse.success(
-                                token, authority.getId(), authority.getEmail(), authority.getFullName(), "AUTHORITY");
+                                accessToken, refreshToken.getToken(), authority.getId(), authority.getEmail(),
+                                authority.getFullName(), "AUTHORITY", accessTokenExpirationMs / 1000);
 
                 return ApiResponse.success("Authority registered successfully", authResponse);
         }
@@ -130,6 +145,7 @@ public class AuthService {
                 }
         }
 
+        @Transactional
         private ApiResponse<AuthResponse> loginUser(String email, String password) {
                 User user = userRepository.findByEmail(email)
                                 .orElse(null);
@@ -146,9 +162,12 @@ public class AuthService {
                         return ApiResponse.error("Invalid email or password");
                 }
 
-                String token = jwtUtils.generateToken(user.getId(), user.getEmail(), "USER");
+                String accessToken = jwtUtils.generateToken(user.getId(), user.getEmail(), "USER");
+                RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId(), "USER");
+
                 AuthResponse authResponse = AuthResponse.success(
-                                token, user.getId(), user.getEmail(), user.getFullName(), "USER");
+                                accessToken, refreshToken.getToken(), user.getId(), user.getEmail(),
+                                user.getFullName(), "USER", accessTokenExpirationMs / 1000);
 
                 logger.info("user logged in: {}", email);
                 // log login event with user details
@@ -158,6 +177,7 @@ public class AuthService {
                 return ApiResponse.success("Login successful", authResponse);
         }
 
+        @Transactional
         private ApiResponse<AuthResponse> loginAuthority(String email, String password) {
                 Authority authority = authorityRepository.findByEmail(email)
                                 .orElse(null);
@@ -174,9 +194,12 @@ public class AuthService {
                         return ApiResponse.error("Invalid email or password");
                 }
 
-                String token = jwtUtils.generateToken(authority.getId(), authority.getEmail(), "AUTHORITY");
+                String accessToken = jwtUtils.generateToken(authority.getId(), authority.getEmail(), "AUTHORITY");
+                RefreshToken refreshToken = refreshTokenService.createRefreshToken(authority.getId(), "AUTHORITY");
+
                 AuthResponse authResponse = AuthResponse.success(
-                                token, authority.getId(), authority.getEmail(), authority.getFullName(), "AUTHORITY");
+                                accessToken, refreshToken.getToken(), authority.getId(), authority.getEmail(),
+                                authority.getFullName(), "AUTHORITY", accessTokenExpirationMs / 1000);
 
                 logger.info("authority logged in: {}", email);
                 // log login event with authority details
@@ -186,6 +209,7 @@ public class AuthService {
                 return ApiResponse.success("Login successful", authResponse);
         }
 
+        @Transactional
         private ApiResponse<AuthResponse> loginAdmin(String email, String password) {
                 Admin admin = adminRepository.findByEmail(email)
                                 .orElse(null);
@@ -202,9 +226,12 @@ public class AuthService {
                         return ApiResponse.error("Invalid email or password");
                 }
 
-                String token = jwtUtils.generateToken(admin.getId(), admin.getEmail(), "ADMIN");
+                String accessToken = jwtUtils.generateToken(admin.getId(), admin.getEmail(), "ADMIN");
+                RefreshToken refreshToken = refreshTokenService.createRefreshToken(admin.getId(), "ADMIN");
+
                 AuthResponse authResponse = AuthResponse.success(
-                                token, admin.getId(), admin.getEmail(), admin.getFullName(), "ADMIN");
+                                accessToken, refreshToken.getToken(), admin.getId(), admin.getEmail(),
+                                admin.getFullName(), "ADMIN", accessTokenExpirationMs / 1000);
 
                 logger.info("admin logged in: {}", email);
                 // log login event with admin details
@@ -214,8 +241,87 @@ public class AuthService {
                 return ApiResponse.success("Login successful", authResponse);
         }
 
-        // logout endpoint - logs the logout event
+        /**
+         * Refresh access token using a valid refresh token.
+         */
+        @Transactional
+        public ApiResponse<AuthResponse> refreshToken(String refreshTokenStr) {
+                try {
+                        RefreshToken refreshToken = refreshTokenService.findByToken(refreshTokenStr)
+                                        .orElseThrow(() -> new TokenRefreshException(refreshTokenStr,
+                                                        "Refresh token not found"));
+
+                        refreshToken = refreshTokenService.verifyExpiration(refreshToken);
+
+                        Long userId = refreshToken.getUserId();
+                        String role = refreshToken.getUserRole();
+
+                        // Get user details based on role
+                        String email = null;
+                        String fullName = null;
+
+                        switch (role) {
+                                case "USER":
+                                        User user = userRepository.findById(userId).orElse(null);
+                                        if (user != null) {
+                                                email = user.getEmail();
+                                                fullName = user.getFullName();
+                                        }
+                                        break;
+                                case "AUTHORITY":
+                                        Authority authority = authorityRepository.findById(userId).orElse(null);
+                                        if (authority != null) {
+                                                email = authority.getEmail();
+                                                fullName = authority.getFullName();
+                                        }
+                                        break;
+                                case "ADMIN":
+                                        Admin admin = adminRepository.findById(userId).orElse(null);
+                                        if (admin != null) {
+                                                email = admin.getEmail();
+                                                fullName = admin.getFullName();
+                                        }
+                                        break;
+                        }
+
+                        if (email == null) {
+                                return ApiResponse.error("User not found");
+                        }
+
+                        // Generate new access token
+                        String newAccessToken = jwtUtils.generateToken(userId, email, role);
+
+                        // Create new refresh token (rotating refresh tokens for security)
+                        RefreshToken newRefreshToken = refreshTokenService.createRefreshToken(userId, role);
+
+                        AuthResponse authResponse = AuthResponse.success(
+                                        newAccessToken, newRefreshToken.getToken(), userId, email,
+                                        fullName, role, accessTokenExpirationMs / 1000);
+
+                        logger.info("Token refreshed for {} with role {}", email, role);
+                        return ApiResponse.success("Token refreshed successfully", authResponse);
+
+                } catch (TokenRefreshException e) {
+                        logger.warn("Token refresh failed: {}", e.getMessage());
+                        return ApiResponse.error(e.getMessage());
+                }
+        }
+
+        /**
+         * Revoke a specific refresh token.
+         */
+        @Transactional
+        public ApiResponse<Boolean> revokeRefreshToken(String refreshToken) {
+                refreshTokenService.revokeToken(refreshToken);
+                return ApiResponse.success("Token revoked successfully", true);
+        }
+
+        // logout endpoint - logs the logout event and revokes refresh tokens
+        @Transactional
         public ApiResponse<Boolean> logout(Long userId, String role) {
+                // Revoke all refresh tokens for this user/role
+                refreshTokenService.revokeAllUserTokens(userId, role);
+
                 logger.info("{} logged out: userId={}", role, userId);
                 loggingClient.logAuthEvent("LOGOUT", userId, role + ":" + userId);
                 return ApiResponse.success("Logged out successfully", true);

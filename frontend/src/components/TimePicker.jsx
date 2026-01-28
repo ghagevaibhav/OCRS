@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 
-const TimePicker = ({ label, value, onChange, name, className = '' }) => {
+const TimePicker = ({ label, value, onChange, name, required, className = '' }) => {
         const [isOpen, setIsOpen] = useState(false)
         const containerRef = useRef(null)
 
@@ -43,6 +43,7 @@ const TimePicker = ({ label, value, onChange, name, className = '' }) => {
                         {label && (
                                 <label className="block text-sm font-medium text-gray-700">
                                         {label}
+                                        {required && <span className="text-danger-500 ml-1">*</span>}
                                 </label>
                         )}
                         <div className="relative">

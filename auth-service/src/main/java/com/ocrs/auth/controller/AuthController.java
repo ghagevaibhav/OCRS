@@ -44,7 +44,31 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(response);
         }
 
-        // logout endpoint - logs the event and clears session
+        /**
+         * Refresh access token using a valid refresh token.
+         * Returns new access token and optionally a new refresh token.
+         */
+        @PostMapping("/refresh")
+        public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
+                        @Valid @RequestBody RefreshTokenRequest request) {
+                ApiResponse<AuthResponse> response = authService.refreshToken(request.getRefreshToken());
+                if (response.isSuccess()) {
+                        return ResponseEntity.ok(response);
+                }
+                return ResponseEntity.status(401).body(response);
+        }
+
+        /**
+         * Revoke a refresh token, invalidating it for future use.
+         */
+        @PostMapping("/revoke")
+        public ResponseEntity<ApiResponse<Boolean>> revokeToken(
+                        @Valid @RequestBody RefreshTokenRequest request) {
+                ApiResponse<Boolean> response = authService.revokeRefreshToken(request.getRefreshToken());
+                return ResponseEntity.ok(response);
+        }
+
+        // logout endpoint - logs the event and revokes refresh tokens
         @PostMapping("/logout")
         public ResponseEntity<ApiResponse<Boolean>> logout(
                         @RequestParam Long userId,

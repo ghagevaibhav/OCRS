@@ -20,7 +20,23 @@ router.post('/notify', async (req, res) => {
                         authorityId,
                         authorityName,
                         comment,
-                        timestamp
+                        timestamp,
+                        // Missing Person specific fields
+                        caseNumber,
+                        missingPersonName,
+                        age,
+                        gender,
+                        height,
+                        complexion,
+                        lastSeenDate,
+                        lastSeenLocation,
+                        description,
+                        status,
+                        // Missing Person Reassign specific fields
+                        newAuthorityId,
+                        newAuthorityName,
+                        previousAuthorityId,
+                        previousAuthorityName
                 } = req.body;
 
                 // In a real app, you would look up the user's email from userId
@@ -31,18 +47,24 @@ router.post('/notify', async (req, res) => {
                 let templateName = template || 'generic';
 
                 if (!template) {
-                        // Auto-detect template based on subject or content
-                        if (subject?.includes('FIR Filed') || subject?.includes('Report Filed')) {
+                        // Auto-detect template based on subject, content, or case number prefix
+                        const caseRef = caseNumber || reference;
+
+                        if (caseRef?.startsWith('MP-') || subject?.includes('Missing Person')) {
+                                templateName = 'missingPersonFiled';
+                        } else if (subject?.includes('FIR Filed') || caseRef?.startsWith('FIR-')) {
                                 templateName = 'firFiled';
                         } else if (subject?.includes('Updated') || subject?.includes('Status Updated')) {
                                 // Use firUpdate template for FIR-related updates with detailed info
-                                if (firNumber || reference?.startsWith('FIR-') || reference?.startsWith('MP-')) {
+                                if (firNumber || caseRef?.startsWith('FIR-')) {
                                         templateName = 'firUpdate';
                                 } else {
                                         templateName = 'statusUpdate';
                                 }
                         }
                 }
+
+                console.log(`[${new Date().toISOString()}] Processing email: template=${templateName}, to=${recipientEmail}, caseNumber=${caseNumber}`);
 
                 const result = await sendEmail(recipientEmail, templateName, {
                         subject,
@@ -55,8 +77,25 @@ router.post('/notify', async (req, res) => {
                         authorityId,
                         authorityName,
                         comment,
-                        timestamp: timestamp || Date.now()
+                        timestamp: timestamp || Date.now(),
+                        // Missing person fields
+                        caseNumber: caseNumber || reference,
+                        missingPersonName,
+                        age,
+                        gender,
+                        height,
+                        complexion,
+                        lastSeenDate,
+                        lastSeenLocation,
+                        description,
+                        status,
+                        // Missing person reassign fields
+                        newAuthorityId,
+                        newAuthorityName,
+                        previousAuthorityId,
+                        previousAuthorityName
                 });
+
 
                 if (result.success) {
                         res.json({

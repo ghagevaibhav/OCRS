@@ -1,0 +1,149 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: api-gateway
+  
+  # Redis configuration for rate limiting (optional - uses in-memory if not available)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+  
+  cloud:
+    gateway:
+      # Enable service discovery
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      
+      # Default filters applied to all routes
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      
+      # Route definitions
+      routes:
+        # Auth Service - Public Routes (no JWT required)
+        - id: auth-service-public
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - RewritePath=/api/auth/(?<segment>.*), /api/auth/${segment}
+        
+        # Auth Service - Authority CRUD operations (PUT/DELETE for admin)
+        - id: auth-service-authority-crud
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/authority/{id}
+            - Method=PUT,DELETE
+          filters:
+            - RewritePath=/api/authority/(?<segment>.*), /api/authority/${segment}
+            - name: JwtAuthFilter
+              args:
+                requiredRole: ADMIN
+        
+        # Backend - User Routes (requires USER role)
+        - id: backend-user
+          uri: lb://backend-service
+          predicates:
+            - Path=/api/user/**
+          filters:
+            - RewritePath=/api/user/(?<segment>.*), /api/user/${segment}
+            - name: JwtAuthFilter
+              args:
+                requiredRole: USER
+        
+        # Backend - Authority Dashboard Routes (requires AUTHORITY role for GET operations)
+        - id: backend-authority-routes
+          uri: lb://backend-service
+          predicates:
+            - Path=/api/authority/**
+            - Method=GET,POST,PUT,PATCH
+          filters:
+            - RewritePath=/api/authority/(?<segment>.*), /api/authority/${segment}
+            - name: JwtAuthFilter
+              args:
+                requiredRole: AUTHORITY
+        
+        # Backend - Admin Routes (requires ADMIN role)
+        - id: backend-admin
+          uri: lb://backend-service
+          predicates:
+            - Path=/api/admin/**
+          filters:
+            - RewritePath=/api/admin/(?<segment>.*), /api/admin/${segment}
+            - name: JwtAuthFilter
+              args:
+                requiredRole: ADMIN
+        
+        # Health check routes
+        - id: auth-health
+          uri: lb://auth-service
+          predicates:
+            - Path=/auth-service/actuator/**
+          filters:
+            - RewritePath=/auth-service/actuator/(?<segment>.*), /actuator/${segment}
+        
+        - id: backend-health
+          uri: lb://backend-service
+          predicates:
+            - Path=/backend-service/actuator/**
+          filters:
+            - RewritePath=/backend-service/actuator/(?<segment>.*), /actuator/${segment}
+      
+      # Global CORS configuration
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:5173"
+              - "http://localhost:3001"
+              - "http://localhost:3000"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+              - PATCH
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+# Eureka Client Configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    hostname: ${HOSTNAME:localhost}
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:ocrs-super-secret-jwt-key-2024-change-in-production-must-be-at-least-256-bits-long}
+
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway
+  endpoint:
+    gateway:
+      enabled: true
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: DEBUG
+    com.ocrs.gateway: DEBUG

@@ -90,6 +90,22 @@ public class FIRService {
                 }
         }
 
+        /**
+         * Determine priority based on crime category using rule-based mapping.
+         * This replaces user-selected priority to prevent bias toward HIGH selections.
+         */
+        private FIR.Priority determinePriority(FIR.Category category) {
+                return switch (category) {
+                        case ASSAULT -> FIR.Priority.URGENT; // Physical violence - immediate attention
+                        case HARASSMENT -> FIR.Priority.HIGH; // Personal safety concern
+                        case CYBERCRIME -> FIR.Priority.HIGH; // Time-sensitive (evidence can be deleted)
+                        case FRAUD -> FIR.Priority.MEDIUM; // Financial crime, less immediate
+                        case THEFT -> FIR.Priority.MEDIUM; // Property crime
+                        case VANDALISM -> FIR.Priority.LOW; // Property damage, non-violent
+                        case OTHER -> FIR.Priority.MEDIUM; // Default for unclassified
+                };
+        }
+
         @Transactional
         public ApiResponse<FIR> fileFIR(Long userId, FIRRequest request) {
                 try {
@@ -108,20 +124,24 @@ public class FIRService {
                                 logger.warn("No active authorities available - FIR {} will be unassigned", firNumber);
                         }
 
+                        // Determine priority based on category (automatic assignment)
+                        FIR.Category category = FIR.Category.valueOf(request.getCategory().toUpperCase());
+                        FIR.Priority autoPriority = determinePriority(category);
+                        logger.info("Auto-assigned priority {} for category {} in FIR {}", autoPriority, category,
+                                        firNumber);
+
                         FIR fir = FIR.builder()
                                         .firNumber(firNumber)
                                         .userId(userId)
                                         .authorityId(authorityId)
-                                        .category(FIR.Category.valueOf(request.getCategory().toUpperCase()))
+                                        .category(category)
                                         .title(request.getTitle())
                                         .description(request.getDescription())
                                         .incidentDate(request.getIncidentDate())
                                         .incidentTime(request.getIncidentTime())
                                         .incidentLocation(request.getIncidentLocation())
                                         .status(FIR.Status.PENDING)
-                                        .priority(request.getPriority() != null
-                                                        ? FIR.Priority.valueOf(request.getPriority().toUpperCase())
-                                                        : FIR.Priority.MEDIUM)
+                                        .priority(autoPriority)
                                         .evidenceUrls(request.getEvidenceUrls())
                                         .build();
 

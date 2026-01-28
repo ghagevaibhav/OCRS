@@ -71,7 +71,150 @@ const templates = {
         `
     }),
 
-    // New template for FIR/Case updates with detailed information
+    // Missing Person Report Filed template
+    missingPersonFiled: (data) => ({
+        subject: `Missing Person Report Filed - ${data.caseNumber || 'OCRS'}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #059669, #047857); padding: 20px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">OCRS</h1>
+                    <p style="color: #d1fae5; margin: 5px 0;">Online Crime Reporting System</p>
+                </div>
+                <div style="padding: 30px; background: #f8fafc;">
+                    <h2 style="color: #047857;">Missing Person Report Filed Successfully</h2>
+                    <p>Dear Citizen,</p>
+                    <p>Your missing person report has been successfully filed and registered in our system. The authorities have been notified and will begin the search process.</p>
+                    
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
+                        <h3 style="color: #047857; margin-top: 0;">Report Details</h3>
+                        <p><strong>Case Number:</strong> <span style="color: #059669; font-weight: bold;">${data.caseNumber || 'N/A'}</span></p>
+                        <p><strong>Status:</strong> ${data.status || 'Pending'}</p>
+                        <p><strong>Filed At:</strong> ${formatTimestamp(data.timestamp)}</p>
+                    </div>
+
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                        <h3 style="color: #d97706; margin-top: 0;">Missing Person Information</h3>
+                        <p><strong>Name:</strong> ${data.missingPersonName || 'N/A'}</p>
+                        ${data.age ? `<p><strong>Age:</strong> ${data.age} years</p>` : ''}
+                        ${data.gender ? `<p><strong>Gender:</strong> ${data.gender}</p>` : ''}
+                        ${data.height ? `<p><strong>Height:</strong> ${data.height}</p>` : ''}
+                        ${data.complexion ? `<p><strong>Complexion:</strong> ${data.complexion}</p>` : ''}
+                    </div>
+
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
+                        <h3 style="color: #dc2626; margin-top: 0;">Last Seen Details</h3>
+                        <p><strong>Last Seen Date:</strong> ${data.lastSeenDate || 'N/A'}</p>
+                        <p><strong>Last Seen Location:</strong> ${data.lastSeenLocation || 'N/A'}</p>
+                        ${data.description ? `<p><strong>Description:</strong> ${data.description}</p>` : ''}
+                    </div>
+
+                    <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p style="margin: 0;"><strong>Assigned Authority:</strong> ${data.authorityName || 'Pending Assignment'}</p>
+                    </div>
+
+                    <p>You can track the status of your report using the case number above. Log in to your dashboard to view the complete details and updates.</p>
+                    <p style="color: #64748b; font-size: 14px;">This is an automated message. Please do not reply.</p>
+                </div>
+                <div style="background: #1e293b; padding: 15px; text-align: center;">
+                    <p style="color: #94a3b8; margin: 0; font-size: 12px;">© 2024 OCRS - Online Crime Reporting System</p>
+                </div>
+            </div>
+        `
+    }),
+
+
+    // Missing Person Report Update template
+    missingPersonUpdate: (data) => ({
+        subject: `Missing Person Report Updated - ${data.caseNumber || 'OCRS'}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #059669, #047857); padding: 20px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">OCRS</h1>
+                    <p style="color: #d1fae5; margin: 5px 0;">Online Crime Reporting System</p>
+                </div>
+                <div style="padding: 30px; background: #f8fafc;">
+                    <h2 style="color: #047857;">Your Missing Person Report Has Been Updated</h2>
+                    <p>Dear Citizen,</p>
+                    <p>An authority has made an update to your missing person report. Please find the details below:</p>
+                    
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
+                        <h3 style="color: #047857; margin-top: 0;">Case Details</h3>
+                        <p><strong>Case Number:</strong> <span style="color: #059669; font-weight: bold;">${data.caseNumber || 'N/A'}</span></p>
+                        ${data.missingPersonName ? `<p><strong>Missing Person:</strong> ${data.missingPersonName}</p>` : ''}
+                        <p><strong>Update Type:</strong> ${data.updateType || 'Status Update'}</p>
+                    </div>
+
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                        <h3 style="color: #d97706; margin-top: 0;">Status Change</h3>
+                        ${data.previousStatus ? `<p><strong>Previous Status:</strong> <span style="color: #64748b;">${data.previousStatus}</span></p>` : ''}
+                        ${data.newStatus ? `<p><strong>New Status:</strong> <span style="color: #059669; font-weight: bold;">${data.newStatus}</span></p>` : ''}
+                        <p><strong>Updated At:</strong> ${formatTimestamp(data.timestamp)}</p>
+                    </div>
+
+                    ${data.comment ? `
+                    <div style="background: #fefce8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #eab308;">
+                        <p style="margin: 0;"><strong>Authority's Comment:</strong></p>
+                        <p style="margin: 10px 0 0 0; color: #713f12;">${data.comment}</p>
+                    </div>
+                    ` : ''}
+
+                    <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p style="margin: 0;"><strong>Updated By:</strong> ${data.authorityName || 'Assigned Authority'}</p>
+                    </div>
+
+                    <p>Log in to your dashboard to view the complete case details and history.</p>
+                    <p style="color: #64748b; font-size: 14px;">This is an automated message. Please do not reply.</p>
+                </div>
+                <div style="background: #1e293b; padding: 15px; text-align: center;">
+                    <p style="color: #94a3b8; margin: 0; font-size: 12px;">© 2024 OCRS - Online Crime Reporting System</p>
+                </div>
+            </div>
+        `
+    }),
+
+    // Missing Person Report Reassigned template
+    missingPersonReassigned: (data) => ({
+        subject: `Missing Person Report Reassigned - ${data.caseNumber || 'OCRS'}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #7c3aed, #5b21b6); padding: 20px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">OCRS</h1>
+                    <p style="color: #ddd6fe; margin: 5px 0;">Online Crime Reporting System</p>
+                </div>
+                <div style="padding: 30px; background: #f8fafc;">
+                    <h2 style="color: #5b21b6;">Your Missing Person Report Has Been Reassigned</h2>
+                    <p>Dear Citizen,</p>
+                    <p>Your missing person report has been reassigned to a different authority officer to ensure the best possible handling of your case.</p>
+                    
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+                        <h3 style="color: #5b21b6; margin-top: 0;">Case Details</h3>
+                        <p><strong>Case Number:</strong> <span style="color: #7c3aed; font-weight: bold;">${data.caseNumber || 'N/A'}</span></p>
+                        ${data.missingPersonName ? `<p><strong>Missing Person:</strong> ${data.missingPersonName}</p>` : ''}
+                        <p><strong>Current Status:</strong> ${data.status || 'Under Investigation'}</p>
+                    </div>
+
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
+                        <h3 style="color: #047857; margin-top: 0;">New Assignment</h3>
+                        <p><strong>New Assigned Authority:</strong> <span style="color: #059669; font-weight: bold;">${data.newAuthorityName || 'N/A'}</span></p>
+                        ${data.previousAuthorityName ? `<p><strong>Previous Authority:</strong> <span style="color: #64748b;">${data.previousAuthorityName}</span></p>` : ''}
+                        <p><strong>Reassigned At:</strong> ${formatTimestamp(data.timestamp)}</p>
+                    </div>
+
+                    <div style="background: #faf5ff; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p style="margin: 0; color: #5b21b6;"><strong>Note:</strong> This reassignment is to ensure efficient handling of your case. The new authority will continue the investigation without any delays.</p>
+                    </div>
+
+                    <p>Log in to your dashboard to view the complete case details and contact information for the new authority.</p>
+                    <p style="color: #64748b; font-size: 14px;">This is an automated message. Please do not reply.</p>
+                </div>
+                <div style="background: #1e293b; padding: 15px; text-align: center;">
+                    <p style="color: #94a3b8; margin: 0; font-size: 12px;">© 2024 OCRS - Online Crime Reporting System</p>
+                </div>
+            </div>
+        `
+    }),
+
+
     firUpdate: (data) => ({
         subject: `FIR Update - ${data.firNumber || data.reference || 'OCRS'}`,
         html: `
