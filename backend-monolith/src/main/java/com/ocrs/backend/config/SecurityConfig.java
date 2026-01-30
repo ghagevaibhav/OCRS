@@ -1,7 +1,10 @@
 package com.ocrs.backend.config;
 
+import com.ocrs.backend.security.CustomAccessDeniedHandler;
+import com.ocrs.backend.security.JwtAuthenticationEntryPoint;
 import com.ocrs.backend.security.JwtAuthenticationFilter;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -17,29 +20,49 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Spring Security configuration for backend-monolith.
+ * Implements JWT-based stateless authentication with proper error handling.
+ */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
+@EnableMethodSecurity(securedEnabled = true, jsr250Enabled = true, prePostEnabled = true)
+@RequiredArgsConstructor
 public class SecurityConfig {
 
-        @Autowired
-        private JwtAuthenticationFilter jwtAuthenticationFilter;
+        private final JwtAuthenticationFilter jwtAuthFilter;
+        private final JwtAuthenticationEntryPoint authEntryPoint;
+        private final CustomAccessDeniedHandler accessDeniedHandler;
 
+        @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:3000,http://localhost:3001}")
+        private List<String> allowedOrigins;
+
+        @Value("${cors.allowed-methods:GET,POST,PUT,DELETE,OPTIONS}")
+        private List<String> allowedMethods;
+
+        /**
+         * BCrypt password encoder with strength 12 for secure password hashing.
+         */
         @Bean
         public PasswordEncoder passwordEncoder() {
-                return new BCryptPasswordEncoder();
+                return new BCryptPasswordEncoder(12);
         }
 
+        /**
+         * Main security filter chain configuration.
+         */
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-                http
+                return http
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .csrf(csrf -> csrf.disable())
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .exceptionHandling(ex -> ex
+                                                .authenticationEntryPoint(authEntryPoint)
+                                                .accessDeniedHandler(accessDeniedHandler))
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers("/actuator/**").permitAll()
                                                 .requestMatchers("/api/health").permitAll()
@@ -51,21 +74,35 @@ public class SecurityConfig {
                                                 // Admin endpoints
                                                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                                                 .anyRequest().authenticated())
-                                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
-                return http.build();
+                                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                                .headers(headers -> headers
+                                                .frameOptions(frame -> frame.deny())
+                                                .contentTypeOptions(content -> {
+                                                })
+                                                .xssProtection(xss -> xss.disable()))
+                                .build();
         }
 
+        /**
+         * CORS configuration with externalized allowed origins.
+         */
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration configuration = new CorsConfiguration();
-                configuration.setAllowedOrigins(List.of(
-                                "http://localhost:5173", // vite dev server
-                                "http://localhost:3001",
-                                "http://localhost:3000"));
-                configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-                configuration.setAllowedHeaders(List.of("*"));
+                configuration.setAllowedOrigins(allowedOrigins);
+                configuration.setAllowedMethods(allowedMethods);
+                configuration.setAllowedHeaders(List.of(
+                                "Authorization",
+                                "Content-Type",
+                                "X-Requested-With",
+                                "Accept",
+                                "Origin",
+                                "X-User-Id",
+                                "X-User-Email",
+                                "X-User-Role"));
+                configuration.setExposedHeaders(List.of("Authorization"));
                 configuration.setAllowCredentials(true);
+                configuration.setMaxAge(3600L);
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
                 source.registerCorsConfiguration("/**", configuration);

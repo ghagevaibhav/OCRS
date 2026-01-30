@@ -16,7 +16,6 @@ import TrackStatus from './pages/user/TrackStatus'
 
 // Authority Pages
 import AuthorityDashboard from './pages/authority/Dashboard'
-import AuthorityAnalytics from './pages/authority/Analytics'
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard'
@@ -70,11 +69,7 @@ function AppRoutes() {
                                                 <AuthorityDashboard />
                                         </ProtectedRoute>
                                 } />
-                                <Route path="/authority/analytics" element={
-                                        <ProtectedRoute roles={['AUTHORITY']}>
-                                                <AuthorityAnalytics />
-                                        </ProtectedRoute>
-                                } />
+
 
                                 {/* Admin Routes */}
                                 <Route path="/admin" element={

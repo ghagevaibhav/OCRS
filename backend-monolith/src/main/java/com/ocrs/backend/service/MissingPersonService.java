@@ -232,6 +232,14 @@ public class MissingPersonService {
                         return ApiResponse.error("You are not authorized to update this report");
                 }
 
+                // Prevent updates on closed cases - closed cases are final
+                if (report.getStatus() == MissingPerson.MissingStatus.CLOSED) {
+                        logger.warn("Rejected update attempt on closed report {} by authority {}",
+                                        report.getCaseNumber(), authorityId);
+                        return ApiResponse.error(
+                                        "Cannot update a closed case. Closed cases are final and cannot be modified.");
+                }
+
                 // Get authority details for notifications via Feign
                 String authorityName = getAuthorityName(authorityId);
 

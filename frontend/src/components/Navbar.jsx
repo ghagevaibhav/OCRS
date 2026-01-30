@@ -39,7 +39,6 @@ const Navbar = () => {
                         case 'AUTHORITY':
                                 return [
                                         { to: '/authority', label: 'Dashboard', icon: '🏠' },
-                                        { to: '/authority/analytics', label: 'Analytics', icon: '📈' },
                                 ]
                         case 'ADMIN':
                                 return [
@@ -89,8 +88,8 @@ const Navbar = () => {
                                                                                 key={link.to}
                                                                                 to={link.to}
                                                                                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-all relative ${isActiveLink(link.to)
-                                                                                                ? 'text-primary-600 bg-primary-50'
-                                                                                                : 'text-gray-600 hover:text-primary-600 hover:bg-gray-50'
+                                                                                        ? 'text-primary-600 bg-primary-50'
+                                                                                        : 'text-gray-600 hover:text-primary-600 hover:bg-gray-50'
                                                                                         }`}
                                                                         >
                                                                                 {link.label}
@@ -175,8 +174,8 @@ const Navbar = () => {
                                                         key={link.to}
                                                         to={link.to}
                                                         className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${isActiveLink(link.to)
-                                                                        ? 'text-primary-600 bg-primary-50'
-                                                                        : 'text-gray-600 hover:text-primary-600 hover:bg-gray-50'
+                                                                ? 'text-primary-600 bg-primary-50'
+                                                                : 'text-gray-600 hover:text-primary-600 hover:bg-gray-50'
                                                                 }`}
                                                 >
                                                         <span className="text-lg">{link.icon}</span>

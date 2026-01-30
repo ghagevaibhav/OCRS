@@ -291,7 +291,7 @@ public class ExternalServiceClient {
                 return logEvent(eventType, userId, reference, null);
         }
 
-        // Enhanced logging with message/details
+        // enhanced logging with message/details
         @Async
         @Retry(name = "loggingService", fallbackMethod = "logFallbackWithMessage")
         @CircuitBreaker(name = "loggingService", fallbackMethod = "logFallbackWithMessage")

@@ -23,6 +23,33 @@ public class JwtUtils {
                 return Keys.hmacShaKeyFor(keyBytes);
         }
 
+        /**
+         * Record to hold all JWT claims - parsed once for efficiency.
+         */
+        public record JwtClaims(Long id, String email, String role) {
+        }
+
+        /**
+         * Extract all claims from token in a single parse operation.
+         * Use this instead of calling individual getXxxFromToken methods.
+         *
+         * @param token JWT token string
+         * @return JwtClaims record containing id, email, and role
+         */
+        public JwtClaims extractAllClaims(String token) {
+                Claims claims = Jwts.parser()
+                                .verifyWith(getSigningKey())
+                                .build()
+                                .parseSignedClaims(token)
+                                .getPayload();
+
+                return new JwtClaims(
+                                claims.get("id", Long.class),
+                                claims.getSubject(),
+                                claims.get("role", String.class));
+        }
+
+        // Individual getters kept for backward compatibility
         public String getEmailFromToken(String token) {
                 return Jwts.parser()
                                 .verifyWith(getSigningKey())

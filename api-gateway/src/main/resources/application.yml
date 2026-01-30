@@ -1,16 +1,21 @@
 server:
   port: 8090
 
+# CORS Configuration for CorsWebFilter
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:*}
+
 spring:
   application:
     name: api-gateway
   
-  # Redis configuration for rate limiting (optional - uses in-memory if not available)
+  # Redis configuration for rate limiting
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       timeout: 2000ms
+      connect-timeout: 5000ms
   
   cloud:
     gateway:
@@ -23,16 +28,28 @@ spring:
       # Default filters applied to all routes
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        # Add request ID for tracing
+        - AddRequestHeader=X-Request-Id, ${random.uuid}
+        # Add security headers
+        - AddResponseHeader=X-Content-Type-Options, nosniff
+        - AddResponseHeader=X-Frame-Options, DENY
+        - AddResponseHeader=Referrer-Policy, strict-origin-when-cross-origin
       
       # Route definitions
       routes:
-        # Auth Service - Public Routes (no JWT required)
+        # Auth Service - Public Routes (no JWT required) - with rate limiting
         - id: auth-service-public
           uri: lb://auth-service
           predicates:
             - Path=/api/auth/**
           filters:
             - RewritePath=/api/auth/(?<segment>.*), /api/auth/${segment}
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@ipKeyResolver}"
         
         # Auth Service - Authority CRUD operations (PUT/DELETE for admin)
         - id: auth-service-authority-crud
@@ -45,8 +62,14 @@ spring:
             - name: JwtAuthFilter
               args:
                 requiredRole: ADMIN
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
         
-        # Backend - User Routes (requires USER role)
+        # Backend - User Routes (requires USER role) - with user-based rate limiting
         - id: backend-user
           uri: lb://backend-service
           predicates:
@@ -56,18 +79,30 @@ spring:
             - name: JwtAuthFilter
               args:
                 requiredRole: USER
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
         
-        # Backend - Authority Dashboard Routes (requires AUTHORITY role for GET operations)
+        # Backend - Authority Dashboard Routes (requires AUTHORITY role)
         - id: backend-authority-routes
           uri: lb://backend-service
           predicates:
             - Path=/api/authority/**
-            - Method=GET,POST,PUT,PATCH
+            - Method=GET,POST,PUT,PATCH,OPTIONS
           filters:
             - RewritePath=/api/authority/(?<segment>.*), /api/authority/${segment}
             - name: JwtAuthFilter
               args:
                 requiredRole: AUTHORITY
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
         
         # Backend - Admin Routes (requires ADMIN role)
         - id: backend-admin
@@ -79,8 +114,14 @@ spring:
             - name: JwtAuthFilter
               args:
                 requiredRole: ADMIN
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
         
-        # Health check routes
+        # Health check routes (no rate limiting)
         - id: auth-health
           uri: lb://auth-service
           predicates:
@@ -95,14 +136,11 @@ spring:
           filters:
             - RewritePath=/backend-service/actuator/(?<segment>.*), /actuator/${segment}
       
-      # Global CORS configuration
+      # Global CORS configuration (externalized via environment variables)
       globalcors:
         corsConfigurations:
           '[/**]':
-            allowedOrigins:
-              - "http://localhost:5173"
-              - "http://localhost:3001"
-              - "http://localhost:3000"
+            allowedOriginPatterns: ${CORS_ALLOWED_ORIGINS:http://localhost:*}
             allowedMethods:
               - GET
               - POST
@@ -111,6 +149,9 @@ spring:
               - OPTIONS
               - PATCH
             allowedHeaders: "*"
+            exposedHeaders:
+              - X-Request-Id
+              - X-RateLimit-Remaining
             allowCredentials: true
             maxAge: 3600
 
@@ -147,3 +188,14 @@ logging:
     root: INFO
     org.springframework.cloud.gateway: DEBUG
     com.ocrs.gateway: DEBUG
+    org.springframework.data.redis: WARN
+
+# Resilience4j Circuit Breaker (optional fallback)
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+        permittedNumberOfCallsInHalfOpenState: 3
