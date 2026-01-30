@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ToastProvider } from './components/Toast'
 
 // Auth Pages - Role-specific
 import UserSignIn from './pages/auth/user/UserSignIn'
@@ -15,7 +16,6 @@ import TrackStatus from './pages/user/TrackStatus'
 
 // Authority Pages
 import AuthorityDashboard from './pages/authority/Dashboard'
-import AuthorityAnalytics from './pages/authority/Analytics'
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard'
@@ -69,11 +69,7 @@ function AppRoutes() {
                                                 <AuthorityDashboard />
                                         </ProtectedRoute>
                                 } />
-                                <Route path="/authority/analytics" element={
-                                        <ProtectedRoute roles={['AUTHORITY']}>
-                                                <AuthorityAnalytics />
-                                        </ProtectedRoute>
-                                } />
+
 
                                 {/* Admin Routes */}
                                 <Route path="/admin" element={
@@ -98,7 +94,9 @@ function AppRoutes() {
 function App() {
         return (
                 <AuthProvider>
-                        <AppRoutes />
+                        <ToastProvider>
+                                <AppRoutes />
+                        </ToastProvider>
                 </AuthProvider>
         )
 }

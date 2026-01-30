@@ -226,4 +226,33 @@ class MissingPersonServiceTest {
                 assertFalse(response.isSuccess());
                 assertEquals("Authority not found", response.getMessage());
         }
+
+        @Test
+        void updateReportStatus_closedCase_fails() {
+                // arrange - create a CLOSED report
+                MissingPerson closedReport = MissingPerson.builder()
+                                .id(2L)
+                                .caseNumber("MP-CLOSED1")
+                                .userId(1L)
+                                .authorityId(1L)
+                                .missingPersonName("Closed Case Person")
+                                .status(MissingPerson.MissingStatus.CLOSED)
+                                .build();
+
+                UpdateRequest updateRequest = new UpdateRequest();
+                updateRequest.setNewStatus("SEARCHING");
+                updateRequest.setUpdateType("STATUS_CHANGE");
+                updateRequest.setComment("Attempt to reopen");
+
+                when(missingPersonRepository.findById(2L)).thenReturn(Optional.of(closedReport));
+
+                // act - try to update a closed report
+                ApiResponse<MissingPerson> response = missingPersonService.updateReportStatus(2L, 1L, updateRequest);
+
+                // assert
+                assertFalse(response.isSuccess());
+                assertEquals("Cannot update a closed case. Closed cases are final and cannot be modified.",
+                                response.getMessage());
+                verify(missingPersonRepository, never()).save(any(MissingPerson.class));
+        }
 }

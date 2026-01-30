@@ -22,6 +22,12 @@ public class JwtUtils {
         @Value("${jwt.expiration}")
         private long jwtExpiration;
 
+        /**
+         * Record to hold all JWT claims - parsed once for efficiency.
+         */
+        public record JwtClaims(Long id, String email, String role) {
+        }
+
         private SecretKey getSigningKey() {
                 byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
                 return Keys.hmacShaKeyFor(keyBytes);
@@ -38,6 +44,27 @@ public class JwtUtils {
                                 .compact();
         }
 
+        /**
+         * Extract all claims from token in a single parse operation.
+         * Use this instead of calling individual getXxxFromToken methods.
+         *
+         * @param token JWT token string
+         * @return JwtClaims record containing id, email, and role
+         */
+        public JwtClaims extractAllClaims(String token) {
+                Claims claims = Jwts.parser()
+                                .verifyWith(getSigningKey())
+                                .build()
+                                .parseSignedClaims(token)
+                                .getPayload();
+
+                return new JwtClaims(
+                                claims.get("id", Long.class),
+                                claims.getSubject(),
+                                claims.get("role", String.class));
+        }
+
+        // Individual getters kept for backward compatibility
         public String getEmailFromToken(String token) {
                 return Jwts.parser()
                                 .verifyWith(getSigningKey())

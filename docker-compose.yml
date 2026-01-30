@@ -14,6 +14,18 @@ services:
       retries: 5
       start_period: 40s
 
+  # Redis for API Gateway Rate Limiting
+  redis:
+    image: redis:7-alpine
+    container_name: ocrs-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Auth Database (MySQL)
   auth-db:
     image: mysql:8.0
@@ -57,6 +69,8 @@ services:
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Makichu#123
       JWT_SECRET: ocrs-super-secret-jwt-key-2024-change-in-production
+      JWT_EXPIRATION: 3600000
+      JWT_REFRESH_EXPIRATION: 604800000
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       SPRING_APPLICATION_NAME: auth-service
     depends_on:
@@ -87,6 +101,28 @@ services:
       eureka-server:
         condition: service_healthy
       auth-service:
+        condition: service_started
+
+  # API Gateway (Spring Cloud Gateway)
+  api-gateway:
+    build: ./api-gateway
+    container_name: ocrs-gateway
+    ports:
+      - "8090:8090"
+    environment:
+      JWT_SECRET: ocrs-super-secret-jwt-key-2024-change-in-production
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SPRING_APPLICATION_NAME: api-gateway
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      backend-monolith:
         condition: service_started
 
   # Email Service (Node.js)
@@ -122,10 +158,12 @@ services:
     container_name: ocrs-frontend
     ports:
       - "3001:80"
+    environment:
+      VITE_API_GATEWAY_URL: http://api-gateway:8090
     depends_on:
-      - auth-service
-      - backend-monolith
+      - api-gateway
 
 volumes:
   auth_db_data:
   backend_db_data:
+

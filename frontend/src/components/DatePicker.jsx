@@ -122,6 +122,7 @@ const DatePicker = ({ label, value, onChange, name, max, min, required, classNam
                         {label && (
                                 <label className="block text-sm font-medium text-gray-700">
                                         {label}
+                                        {required && <span className="text-danger-500 ml-1">*</span>}
                                 </label>
                         )}
                         <div className="relative">

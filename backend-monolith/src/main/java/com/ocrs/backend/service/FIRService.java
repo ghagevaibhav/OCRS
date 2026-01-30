@@ -39,7 +39,7 @@ public class FIRService {
         private ExternalServiceClient externalServiceClient;
 
         /**
-         * Helper method to get user's email from Auth service via Feign
+         * helper method to get user's email from Auth service via Feign
          */
         private String getUserEmail(Long userId) {
                 if (userId == null) {
@@ -57,7 +57,7 @@ public class FIRService {
         }
 
         /**
-         * Helper method to get authority name from Auth service via Feign
+         * helper method to get authority name from Auth service via Feign
          */
         private String getAuthorityName(Long authorityId) {
                 if (authorityId == null) {
@@ -75,7 +75,7 @@ public class FIRService {
         }
 
         /**
-         * Helper method to check if authority exists via Feign
+         * helper method to check if authority exists via Feign
          */
         private boolean authorityExists(Long authorityId) {
                 if (authorityId == null) {
@@ -90,13 +90,29 @@ public class FIRService {
                 }
         }
 
+        /**
+         * determine priority based on crime category using rule-based mapping.
+         * this replaces user-selected priority to prevent bias toward HIGH selections.
+         */
+        private FIR.Priority determinePriority(FIR.Category category) {
+                return switch (category) {
+                        case ASSAULT -> FIR.Priority.URGENT; // physical violence - immediate attention
+                        case HARASSMENT -> FIR.Priority.HIGH; // personal safety concern
+                        case CYBERCRIME -> FIR.Priority.HIGH; // time-sensitive (evidence can be deleted)
+                        case FRAUD -> FIR.Priority.MEDIUM; // financial crime, less immediate
+                        case THEFT -> FIR.Priority.MEDIUM; // property crime
+                        case VANDALISM -> FIR.Priority.LOW; // property damage, non-violent
+                        case OTHER -> FIR.Priority.MEDIUM; // default for unclassified
+                };
+        }
+
         @Transactional
         public ApiResponse<FIR> fileFIR(Long userId, FIRRequest request) {
                 try {
-                        // Generate unique FIR number
+                        // generate unique FIR number
                         String firNumber = "FIR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
-                        // Auto-assign to authority with least active cases
+                        // auto-assign to authority with least active cases
                         Long authorityId = findLeastLoadedAuthority();
                         String authorityName = null;
 
@@ -108,20 +124,24 @@ public class FIRService {
                                 logger.warn("No active authorities available - FIR {} will be unassigned", firNumber);
                         }
 
+                        // determine priority based on category (automatic assignment)
+                        FIR.Category category = FIR.Category.valueOf(request.getCategory().toUpperCase());
+                        FIR.Priority autoPriority = determinePriority(category);
+                        logger.info("Auto-assigned priority {} for category {} in FIR {}", autoPriority, category,
+                                        firNumber);
+
                         FIR fir = FIR.builder()
                                         .firNumber(firNumber)
                                         .userId(userId)
                                         .authorityId(authorityId)
-                                        .category(FIR.Category.valueOf(request.getCategory().toUpperCase()))
+                                        .category(category)
                                         .title(request.getTitle())
                                         .description(request.getDescription())
                                         .incidentDate(request.getIncidentDate())
                                         .incidentTime(request.getIncidentTime())
                                         .incidentLocation(request.getIncidentLocation())
                                         .status(FIR.Status.PENDING)
-                                        .priority(request.getPriority() != null
-                                                        ? FIR.Priority.valueOf(request.getPriority().toUpperCase())
-                                                        : FIR.Priority.MEDIUM)
+                                        .priority(autoPriority)
                                         .evidenceUrls(request.getEvidenceUrls())
                                         .build();
 
@@ -129,8 +149,8 @@ public class FIRService {
                         logger.info("FIR filed: {} by user {}, assigned to authority: {} ({})", firNumber, userId,
                                         authorityName, authorityId);
 
-                        // Notify external services with FIR number and authority details
-                        // Fetch user's email for notification
+                        // notify external services with FIR number and authority details
+                        // fetch user's email for notification
                         String userEmail = getUserEmail(userId);
                         externalServiceClient.sendFirFiledNotification(userId, userEmail, firNumber, authorityId,
                                         authorityName);
@@ -144,12 +164,12 @@ public class FIRService {
         }
 
         /**
-         * Find the authority with the least number of active (non-resolved) cases.
-         * Uses load balancing to distribute FIRs evenly across authorities.
+         * find the authority with the least number of active (non-resolved) cases.
+         * uses load balancing to distribute FIRs evenly across authorities.
          */
         private Long findLeastLoadedAuthority() {
                 try {
-                        // Get all active authorities from Auth service via Feign
+                        // get all active authorities from Auth service via Feign
                         ApiResponse<List<AuthorityDTO>> response = authServiceClient.getActiveAuthorities();
 
                         if (!response.isSuccess() || response.getData() == null || response.getData().isEmpty()) {
@@ -159,12 +179,12 @@ public class FIRService {
 
                         List<AuthorityDTO> activeAuthorities = response.getData();
 
-                        // Find authority with minimum active cases
+                        // determine authority with minimum active cases
                         Long leastLoadedAuthority = null;
                         long minCases = Long.MAX_VALUE;
 
                         for (AuthorityDTO authority : activeAuthorities) {
-                                // Count active (non-closed, non-resolved) FIRs for this authority
+                                // count active (non-closed, non-resolved) FIRs for this authority
                                 long activeCases = firRepository.countActiveByAuthorityId(authority.getId());
 
                                 logger.debug("Authority {} (ID: {}) has {} active cases",
@@ -217,12 +237,20 @@ public class FIRService {
                         return ApiResponse.error("FIR not found");
                 }
 
-                // Verify authority is assigned to this FIR
+                // verify authority is assigned to this FIR
                 if (fir.getAuthorityId() == null || !fir.getAuthorityId().equals(authorityId)) {
                         return ApiResponse.error("You are not authorized to update this FIR");
                 }
 
-                // Get authority details for notifications via Feign
+                // prevent updates on closed cases - closed cases are final
+                if (fir.getStatus() == FIR.Status.CLOSED) {
+                        logger.warn("Rejected update attempt on closed FIR {} by authority {}",
+                                        fir.getFirNumber(), authorityId);
+                        return ApiResponse.error(
+                                        "Cannot update a closed case. Closed cases are final and cannot be modified.");
+                }
+
+                // get authority details for notifications via Feign
                 String authorityName = getAuthorityName(authorityId);
 
                 String previousStatus = fir.getStatus().name();
@@ -233,7 +261,7 @@ public class FIRService {
 
                 fir = firRepository.save(fir);
 
-                // Create update record
+                // create update record
                 Update update = Update.builder()
                                 .firId(firId)
                                 .authorityId(authorityId)
@@ -245,8 +273,8 @@ public class FIRService {
 
                 updateRepository.save(update);
 
-                // Send detailed FIR update notification to user
-                // Fetch user's email for notification
+                // send detailed FIR update notification to user
+                // fetch user's email for notification
                 String userEmail = getUserEmail(fir.getUserId());
                 externalServiceClient.sendFirUpdateNotification(
                                 fir.getUserId(),
@@ -259,7 +287,7 @@ public class FIRService {
                                 authorityName,
                                 request.getComment());
 
-                // Log the update event with detailed message
+                // log the update event with detailed message
                 String logMessage = String.format("FIR: %s, Authority: %s (ID: %d), Update: %s, Status: %s -> %s",
                                 fir.getFirNumber(), authorityName, authorityId,
                                 request.getUpdateType(), previousStatus, fir.getStatus().name());
@@ -289,7 +317,7 @@ public class FIRService {
                         return ApiResponse.error("FIR not found");
                 }
 
-                // Verify authority exists via Feign
+                // verify authority exists via Feign
                 if (!authorityExists(newAuthorityId)) {
                         return ApiResponse.error("Authority not found");
                 }
@@ -298,7 +326,7 @@ public class FIRService {
                         return ApiResponse.error("Cannot reassign to the same authority");
                 }
 
-                // Get authority name via Feign
+                // get authority name via Feign
                 String authorityName = getAuthorityName(newAuthorityId);
 
                 Long previousAuthorityId = fir.getAuthorityId();
@@ -315,13 +343,13 @@ public class FIRService {
 
                 updateRepository.save(update);
 
-                // Send email notification to user about reassignment
+                // send email notification to user about reassignment
                 String userEmail = getUserEmail(fir.getUserId());
                 externalServiceClient.sendEmailNotification(fir.getUserId(), userEmail, "FIR Reassigned",
                                 "Your FIR " + fir.getFirNumber() + " has been reassigned to a new officer: "
                                                 + authorityName);
 
-                // Log the reassignment event
+                // log the reassignment event
                 externalServiceClient.logEvent("FIR_REASSIGNED", newAuthorityId, fir.getFirNumber(),
                                 "FIR reassigned from authority " + previousAuthorityId + " to " + newAuthorityId);
 

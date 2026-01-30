@@ -136,10 +136,25 @@ public class MissingPersonService {
 
                         // Fetch user's email for notification
                         String userEmail = getUserEmail(userId);
-                        externalServiceClient.sendEmailNotification(userId, userEmail, "Missing Person Report Filed",
-                                        "Your missing person report " + caseNumber + " has been filed successfully." +
-                                                        (authorityName != null ? " Assigned to: " + authorityName
-                                                                        : ""));
+                        // Send detailed missing person notification
+                        externalServiceClient.sendMissingPersonFiledNotification(
+                                        userId,
+                                        userEmail,
+                                        caseNumber,
+                                        missingPerson.getMissingPersonName(),
+                                        missingPerson.getAge(),
+                                        missingPerson.getGender() != null ? missingPerson.getGender().name() : null,
+                                        missingPerson.getHeight(),
+                                        missingPerson.getComplexion(),
+                                        missingPerson.getLastSeenDate() != null
+                                                        ? missingPerson.getLastSeenDate().toString()
+                                                        : null,
+                                        missingPerson.getLastSeenLocation(),
+                                        missingPerson.getDescription(),
+                                        authorityId,
+                                        authorityName,
+                                        missingPerson.getStatus() != null ? missingPerson.getStatus().name()
+                                                        : "PENDING");
                         externalServiceClient.logEvent("MISSING_PERSON_FILED", userId, caseNumber);
 
                         return ApiResponse.success("Missing person report filed successfully", missingPerson);
@@ -217,6 +232,14 @@ public class MissingPersonService {
                         return ApiResponse.error("You are not authorized to update this report");
                 }
 
+                // Prevent updates on closed cases - closed cases are final
+                if (report.getStatus() == MissingPerson.MissingStatus.CLOSED) {
+                        logger.warn("Rejected update attempt on closed report {} by authority {}",
+                                        report.getCaseNumber(), authorityId);
+                        return ApiResponse.error(
+                                        "Cannot update a closed case. Closed cases are final and cannot be modified.");
+                }
+
                 // Get authority details for notifications via Feign
                 String authorityName = getAuthorityName(authorityId);
 
@@ -239,11 +262,13 @@ public class MissingPersonService {
 
                 updateRepository.save(update);
 
-                // Send detailed update notification
-                externalServiceClient.sendFirUpdateNotification(
+                // Send detailed update notification to user
+                String userEmail = getUserEmail(report.getUserId());
+                externalServiceClient.sendMissingPersonUpdateNotification(
                                 report.getUserId(),
-                                null, // userEmail - will be looked up by email service
+                                userEmail,
                                 report.getCaseNumber(),
+                                report.getMissingPersonName(),
                                 request.getUpdateType(),
                                 report.getStatus().name(),
                                 previousStatus,
@@ -309,12 +334,21 @@ public class MissingPersonService {
 
                 updateRepository.save(update);
 
-                // Fetch user's email for notification
+                // Fetch user's email and previous authority name for notification
                 String userEmail = getUserEmail(report.getUserId());
-                externalServiceClient.sendEmailNotification(report.getUserId(), userEmail,
-                                "Missing Person Report Reassigned",
-                                "Your report " + report.getCaseNumber() + " has been reassigned to a new officer: "
-                                                + authorityName);
+                String previousAuthorityName = previousAuthorityId != null ? getAuthorityName(previousAuthorityId)
+                                : null;
+
+                externalServiceClient.sendMissingPersonReassignedNotification(
+                                report.getUserId(),
+                                userEmail,
+                                report.getCaseNumber(),
+                                report.getMissingPersonName(),
+                                report.getStatus() != null ? report.getStatus().name() : "PENDING",
+                                newAuthorityId,
+                                authorityName,
+                                previousAuthorityId,
+                                previousAuthorityName);
 
                 // Log the reassignment event
                 externalServiceClient.logEvent("MISSING_PERSON_REASSIGNED", newAuthorityId, report.getCaseNumber(),

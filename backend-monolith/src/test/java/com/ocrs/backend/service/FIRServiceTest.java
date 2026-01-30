@@ -225,4 +225,35 @@ class FIRServiceTest {
                 assertFalse(response.isSuccess());
                 assertEquals("Authority not found", response.getMessage());
         }
+
+        @Test
+        void updateFIRStatus_closedCase_fails() {
+                // arrange - create a CLOSED FIR
+                FIR closedFir = FIR.builder()
+                                .id(2L)
+                                .firNumber("FIR-CLOSED1")
+                                .userId(1L)
+                                .authorityId(1L)
+                                .category(FIR.Category.THEFT)
+                                .title("Closed FIR")
+                                .description("This case is closed")
+                                .status(FIR.Status.CLOSED)
+                                .build();
+
+                UpdateRequest updateRequest = new UpdateRequest();
+                updateRequest.setNewStatus("UNDER_INVESTIGATION");
+                updateRequest.setUpdateType("STATUS_CHANGE");
+                updateRequest.setComment("Attempt to reopen");
+
+                when(firRepository.findById(2L)).thenReturn(Optional.of(closedFir));
+
+                // act - try to update a closed FIR
+                ApiResponse<FIR> response = firService.updateFIRStatus(2L, 1L, updateRequest);
+
+                // assert
+                assertFalse(response.isSuccess());
+                assertEquals("Cannot update a closed case. Closed cases are final and cannot be modified.",
+                                response.getMessage());
+                verify(firRepository, never()).save(any(FIR.class));
+        }
 }

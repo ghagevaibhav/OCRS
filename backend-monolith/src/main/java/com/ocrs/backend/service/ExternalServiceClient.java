@@ -86,6 +86,121 @@ public class ExternalServiceClient {
                                                 userEmail));
         }
 
+        // Missing Person report filed notification with detailed information
+        @Async
+        @Retry(name = "emailService", fallbackMethod = "missingPersonFiledEmailFallback")
+        @CircuitBreaker(name = "emailService", fallbackMethod = "missingPersonFiledEmailFallback")
+        public CompletableFuture<Void> sendMissingPersonFiledNotification(
+                        Long userId, String userEmail, String caseNumber,
+                        String missingPersonName, Integer age, String gender,
+                        String height, String complexion,
+                        String lastSeenDate, String lastSeenLocation, String description,
+                        Long authorityId, String authorityName, String status) {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("userId", userId);
+                if (userEmail != null) {
+                        payload.put("email", userEmail);
+                }
+                payload.put("subject", "Missing Person Report Filed - " + caseNumber);
+                payload.put("caseNumber", caseNumber);
+                payload.put("missingPersonName", missingPersonName);
+                if (age != null)
+                        payload.put("age", age);
+                if (gender != null)
+                        payload.put("gender", gender);
+                if (height != null)
+                        payload.put("height", height);
+                if (complexion != null)
+                        payload.put("complexion", complexion);
+                if (lastSeenDate != null)
+                        payload.put("lastSeenDate", lastSeenDate);
+                if (lastSeenLocation != null)
+                        payload.put("lastSeenLocation", lastSeenLocation);
+                if (description != null)
+                        payload.put("description", description);
+                payload.put("authorityId", authorityId);
+                payload.put("authorityName", authorityName != null ? authorityName : "Pending Assignment");
+                payload.put("status", status != null ? status : "Pending");
+                payload.put("template", "missingPersonFiled");
+                payload.put("timestamp", System.currentTimeMillis());
+
+                return sendPostRequest(
+                                emailServiceUrl + "/api/notify",
+                                payload,
+                                () -> logger.info("Missing person report notification sent for {} to user {} ({})",
+                                                caseNumber, userId, userEmail));
+        }
+
+        // Missing Person report update notification
+        @Async
+        @Retry(name = "emailService", fallbackMethod = "missingPersonUpdateEmailFallback")
+        @CircuitBreaker(name = "emailService", fallbackMethod = "missingPersonUpdateEmailFallback")
+        public CompletableFuture<Void> sendMissingPersonUpdateNotification(
+                        Long userId, String userEmail, String caseNumber,
+                        String missingPersonName, String updateType,
+                        String newStatus, String previousStatus,
+                        Long authorityId, String authorityName, String comment) {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("userId", userId);
+                if (userEmail != null)
+                        payload.put("email", userEmail);
+                payload.put("subject", "Missing Person Report Updated - " + caseNumber);
+                payload.put("caseNumber", caseNumber);
+                if (missingPersonName != null)
+                        payload.put("missingPersonName", missingPersonName);
+                payload.put("updateType", updateType);
+                payload.put("newStatus", newStatus);
+                if (previousStatus != null)
+                        payload.put("previousStatus", previousStatus);
+                payload.put("authorityId", authorityId);
+                payload.put("authorityName", authorityName);
+                if (comment != null)
+                        payload.put("comment", comment);
+                payload.put("template", "missingPersonUpdate");
+                payload.put("timestamp", System.currentTimeMillis());
+
+                return sendPostRequest(
+                                emailServiceUrl + "/api/notify",
+                                payload,
+                                () -> logger.info("Missing person update notification sent for {} to user {}",
+                                                caseNumber, userId));
+        }
+
+        // Missing Person report reassignment notification
+        @Async
+        @Retry(name = "emailService", fallbackMethod = "missingPersonReassignedEmailFallback")
+        @CircuitBreaker(name = "emailService", fallbackMethod = "missingPersonReassignedEmailFallback")
+        public CompletableFuture<Void> sendMissingPersonReassignedNotification(
+                        Long userId, String userEmail, String caseNumber,
+                        String missingPersonName, String status,
+                        Long newAuthorityId, String newAuthorityName,
+                        Long previousAuthorityId, String previousAuthorityName) {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("userId", userId);
+                if (userEmail != null)
+                        payload.put("email", userEmail);
+                payload.put("subject", "Missing Person Report Reassigned - " + caseNumber);
+                payload.put("caseNumber", caseNumber);
+                if (missingPersonName != null)
+                        payload.put("missingPersonName", missingPersonName);
+                if (status != null)
+                        payload.put("status", status);
+                payload.put("newAuthorityId", newAuthorityId);
+                payload.put("newAuthorityName", newAuthorityName != null ? newAuthorityName : "N/A");
+                if (previousAuthorityId != null)
+                        payload.put("previousAuthorityId", previousAuthorityId);
+                if (previousAuthorityName != null)
+                        payload.put("previousAuthorityName", previousAuthorityName);
+                payload.put("template", "missingPersonReassigned");
+                payload.put("timestamp", System.currentTimeMillis());
+
+                return sendPostRequest(
+                                emailServiceUrl + "/api/notify",
+                                payload,
+                                () -> logger.info("Missing person reassignment notification sent for {} to user {}",
+                                                caseNumber, userId));
+        }
+
         // Enhanced FIR update notification with detailed information
         @Async
         @Retry(name = "emailService", fallbackMethod = "firUpdateEmailFallback")
@@ -137,6 +252,37 @@ public class ExternalServiceClient {
                 return CompletableFuture.completedFuture(null);
         }
 
+        public CompletableFuture<Void> missingPersonFiledEmailFallback(
+                        Long userId, String userEmail, String caseNumber,
+                        String missingPersonName, Integer age, String gender,
+                        String height, String complexion,
+                        String lastSeenDate, String lastSeenLocation, String description,
+                        Long authorityId, String authorityName, String status, Exception e) {
+                logger.warn("email service unavailable, skipping missing person notification for case {} to user {} ({})",
+                                caseNumber, userId, userEmail);
+                return CompletableFuture.completedFuture(null);
+        }
+
+        public CompletableFuture<Void> missingPersonUpdateEmailFallback(
+                        Long userId, String userEmail, String caseNumber,
+                        String missingPersonName, String updateType,
+                        String newStatus, String previousStatus,
+                        Long authorityId, String authorityName, String comment, Exception e) {
+                logger.warn("email service unavailable, skipping missing person update notification for case {} to user {}",
+                                caseNumber, userId);
+                return CompletableFuture.completedFuture(null);
+        }
+
+        public CompletableFuture<Void> missingPersonReassignedEmailFallback(
+                        Long userId, String userEmail, String caseNumber,
+                        String missingPersonName, String status,
+                        Long newAuthorityId, String newAuthorityName,
+                        Long previousAuthorityId, String previousAuthorityName, Exception e) {
+                logger.warn("email service unavailable, skipping missing person reassignment notification for case {} to user {}",
+                                caseNumber, userId);
+                return CompletableFuture.completedFuture(null);
+        }
+
         // async logging - non-blocking
         @Async
         @Retry(name = "loggingService", fallbackMethod = "logFallback")
@@ -145,7 +291,7 @@ public class ExternalServiceClient {
                 return logEvent(eventType, userId, reference, null);
         }
 
-        // Enhanced logging with message/details
+        // enhanced logging with message/details
         @Async
         @Retry(name = "loggingService", fallbackMethod = "logFallbackWithMessage")
         @CircuitBreaker(name = "loggingService", fallbackMethod = "logFallbackWithMessage")

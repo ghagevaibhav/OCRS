@@ -56,14 +56,15 @@ wait_for_port() {
     return 0
 }
 
-# 0. Start Databases via Docker Compose
-echo "🗄️  Starting Databases..."
+# 0. Start Databases and Redis via Docker Compose
+echo "🗄️  Starting Databases and Redis..."
 if command -v docker >/dev/null 2>&1; then
-    docker compose up -d auth-db backend-db
+    docker compose up -d auth-db backend-db redis
     if [ $? -eq 0 ]; then
         echo "   Docker containers started."
         wait_for_port localhost 3307 "Auth DB"
         wait_for_port localhost 3308 "Backend DB"
+        wait_for_port localhost 6379 "Redis"
     else
         echo "❌ Failed to start Docker containers. Check docker status."
         exit 1
@@ -137,9 +138,20 @@ BACKEND_PID=$!
 echo "   PID: $BACKEND_PID"
 echo ""
 
-# 6. Start Frontend (react - port 5173)
+# 6. Start API Gateway (java - port 8090)
+check_port_free 8090 || exit 1
+echo "🌐 Starting API Gateway (port 8090)..."
+cd "$PROJECT_DIR/api-gateway"
+# Wait for auth and backend services to register with Eureka
+sleep 5
+mvn spring-boot:run > "$LOG_DIR/api-gateway.log" 2>&1 &
+GATEWAY_PID=$!
+echo "   PID: $GATEWAY_PID"
+echo ""
+
+# 7. Start Frontend (react - port 5173)
 check_port_free 5173
-echo "🌐 Starting Frontend (port 5173)..."
+echo "🖥️  Starting Frontend (port 5173)..."
 cd "$PROJECT_DIR/frontend"
 if command -v npm >/dev/null 2>&1; then
     npm run dev > "$LOG_DIR/frontend.log" 2>&1 &
@@ -158,6 +170,7 @@ PIDS_TO_SAVE=""
 [ ! -z "$EMAIL_PID" ] && PIDS_TO_SAVE="$PIDS_TO_SAVE $EMAIL_PID"
 [ ! -z "$AUTH_PID" ] && PIDS_TO_SAVE="$PIDS_TO_SAVE $AUTH_PID"
 [ ! -z "$BACKEND_PID" ] && PIDS_TO_SAVE="$PIDS_TO_SAVE $BACKEND_PID"
+[ ! -z "$GATEWAY_PID" ] && PIDS_TO_SAVE="$PIDS_TO_SAVE $GATEWAY_PID"
 [ ! -z "$FRONTEND_PID" ] && PIDS_TO_SAVE="$PIDS_TO_SAVE $FRONTEND_PID"
 
 echo "$PIDS_TO_SAVE" > "$LOG_DIR/pids.txt"
@@ -167,13 +180,16 @@ echo "================================"
 echo "✅ Startup sequence initiated!"
 echo ""
 echo "📍 URLs:"
-echo "   Eureka:    http://localhost:8761"
-echo "   Frontend:  http://localhost:5173"
-echo "   Auth API:  http://localhost:8081/api/auth/health"
-echo "   Backend:   http://localhost:8080/api/health"
-echo "   Logging:   http://localhost:5000/api/logs/health"
-echo "   Email:     http://localhost:3000/health"
+echo "   Eureka:      http://localhost:8761"
+echo "   API Gateway: http://localhost:8090 (main entry point)"
+echo "   Frontend:    http://localhost:5173"
+echo "   Auth API:    http://localhost:8081/api/auth/health"
+echo "   Backend:     http://localhost:8080/api/health"
+echo "   Logging:     http://localhost:5000/api/logs/health"
+echo "   Email:       http://localhost:3000/health"
+echo "   Redis:       localhost:6379 (rate limiting)"
 echo ""
 echo "📋 Logs: $LOG_DIR/"
 echo "🛑 To stop: ./stop-services.sh"
 echo ""
+
