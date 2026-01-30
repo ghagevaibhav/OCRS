@@ -34,6 +34,12 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(response);
         }
 
+        /**
+         * Authenticate the provided credentials and return an authentication result.
+         *
+         * @param request the login credentials (e.g., username/email and password)
+         * @return the ApiResponse containing an AuthResponse on success or error details on failure
+         */
         @PostMapping("/login")
         public ResponseEntity<ApiResponse<AuthResponse>> login(
                         @Valid @RequestBody LoginRequest request) {
@@ -45,8 +51,10 @@ public class AuthController {
         }
 
         /**
-         * Refresh access token using a valid refresh token.
-         * Returns new access token and optionally a new refresh token.
+         * Refreshes the access token using the provided refresh token.
+         *
+         * @param request a request object containing the refresh token to exchange for a new access token
+         * @return an {@code ApiResponse<AuthResponse>} containing the refreshed access token and, optionally, a new refresh token; {@code success} is `true` with token data on success and `false` with error details on failure
          */
         @PostMapping("/refresh")
         public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
@@ -59,7 +67,10 @@ public class AuthController {
         }
 
         /**
-         * Revoke a refresh token, invalidating it for future use.
+         * Revoke a refresh token to make it invalid for future use.
+         *
+         * @param request the refresh token request containing the token to revoke
+         * @return an ApiResponse containing `true` if the token was successfully revoked, `false` otherwise
          */
         @PostMapping("/revoke")
         public ResponseEntity<ApiResponse<Boolean>> revokeToken(
@@ -68,7 +79,13 @@ public class AuthController {
                 return ResponseEntity.ok(response);
         }
 
-        // logout endpoint - logs the event and revokes refresh tokens
+        /**
+         * Logs a user's logout and revokes any associated refresh tokens.
+         *
+         * @param userId the identifier of the user to log out
+         * @param role   the role of the user (for example, "USER" or "AUTHORITY")
+         * @return       an ApiResponse containing `true` if the logout and revocation succeeded, `false` otherwise
+         */
         @PostMapping("/logout")
         public ResponseEntity<ApiResponse<Boolean>> logout(
                         @RequestParam Long userId,

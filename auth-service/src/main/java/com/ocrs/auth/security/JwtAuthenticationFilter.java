@@ -30,6 +30,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         private final JwtUtils jwtUtils;
 
+        /**
+         * Validates a JWT from the request's Authorization header, populates SecurityContext with a UserPrincipal-derived Authentication when the token is valid, and attaches userId, userEmail, and userRole as request attributes before continuing the filter chain.
+         */
         @Override
         protected void doFilterInternal(HttpServletRequest request,
                         HttpServletResponse response,
@@ -69,10 +72,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         /**
-         * Extract JWT token from Authorization header.
+         * Extracts the JWT token from the Authorization header of the request.
          *
-         * @param request HTTP request
-         * @return JWT token string or null if not found
+         * @param request the HTTP servlet request containing headers
+         * @return the JWT token string if the Authorization header starts with "Bearer ", otherwise null
          */
         private String parseJwt(HttpServletRequest request) {
                 String headerAuth = request.getHeader("Authorization");

@@ -31,8 +31,11 @@ public class RefreshTokenService {
         private RefreshTokenRepository refreshTokenRepository;
 
         /**
-         * Creates a new refresh token for a user.
-         * Revokes any existing tokens for the same user/role combination.
+         * Create a new refresh token for the given user and role, revoking any existing tokens for that user-role.
+         *
+         * @param userId the ID of the user the refresh token will be associated with
+         * @param role the role to embed with the refresh token
+         * @return the persisted RefreshToken entity
          */
         @Transactional
         public RefreshToken createRefreshToken(Long userId, String role) {
@@ -53,23 +56,32 @@ public class RefreshTokenService {
         }
 
         /**
-         * Generates a cryptographically secure random token string.
+         * Create a random token string composed of two UUIDs separated by a dash.
+         *
+         * @return the generated token string (two UUIDs joined by '-')
          */
         private String generateTokenString() {
                 return UUID.randomUUID().toString() + "-" + UUID.randomUUID().toString();
         }
 
         /**
-         * Finds a refresh token by its token string.
+         * Locate a non-revoked refresh token by its token string.
+         *
+         * @param token the refresh token string to search for
+         * @return an Optional containing the matching non-revoked RefreshToken if found, or empty otherwise
          */
         public Optional<RefreshToken> findByToken(String token) {
                 return refreshTokenRepository.findByTokenAndRevokedFalse(token);
         }
 
         /**
-         * Verifies that a refresh token is not expired.
-         * 
-         * @throws TokenRefreshException if the token is expired
+         * Validate a refresh token's expiration and revocation status.
+         *
+         * If the token is expired it will be revoked and a TokenRefreshException is thrown.
+         *
+         * @param token the refresh token to validate
+         * @return the same {@code token} when it is valid
+         * @throws TokenRefreshException if the token is expired or has been revoked
          */
         public RefreshToken verifyExpiration(RefreshToken token) {
                 if (token.isExpired()) {
@@ -96,7 +108,10 @@ public class RefreshTokenService {
         }
 
         /**
-         * Revokes all refresh tokens for a user with a specific role.
+         * Revoke all refresh tokens associated with the given user and role.
+         *
+         * @param userId the identifier of the user whose tokens will be revoked
+         * @param role the user role for which tokens will be revoked
          */
         @Transactional
         public void revokeAllUserTokens(Long userId, String role) {
@@ -105,8 +120,9 @@ public class RefreshTokenService {
         }
 
         /**
-         * Scheduled task to clean up expired tokens.
-         * Runs every day at midnight.
+         * Deletes expired refresh tokens from the repository.
+         *
+         * Scheduled to run daily at midnight; removes tokens with an expiry before the current instant.
          */
         @Scheduled(cron = "0 0 0 * * ?")
         @Transactional

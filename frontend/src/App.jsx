@@ -25,6 +25,17 @@ import Analytics from './pages/admin/Analytics'
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
 
+/**
+ * Render the application's route hierarchy and role-based navigation.
+ *
+ * Renders a page container with a conditional top navigation and a Routes tree that:
+ * - Exposes sign-in/sign-up routes that redirect authenticated users to their landing pages.
+ * - Redirects legacy URLs to their current equivalents.
+ * - Protects user, authority, and admin routes by role.
+ * - Redirects the root and unknown paths to appropriate destinations based on authentication state.
+ *
+ * @returns {JSX.Element} The app's routing layout and conditional navbar element.
+ */
 function AppRoutes() {
         const { user } = useAuth()
 
@@ -91,6 +102,11 @@ function AppRoutes() {
         )
 }
 
+/**
+ * Application root component that provides authentication and toast contexts and renders the route tree.
+ *
+ * @returns {JSX.Element} The root React element wrapping AppRoutes with AuthProvider and ToastProvider.
+ */
 function App() {
         return (
                 <AuthProvider>

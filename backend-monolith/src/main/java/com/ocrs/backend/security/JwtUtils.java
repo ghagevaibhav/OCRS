@@ -18,6 +18,11 @@ public class JwtUtils {
         @Value("${jwt.secret}")
         private String jwtSecret;
 
+        /**
+         * Builds a SecretKey for HMAC-SHA signing from the configured JWT secret.
+         *
+         * @return the SecretKey derived from the `jwtSecret` string (UTF-8 bytes)
+         */
         private SecretKey getSigningKey() {
                 byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
                 return Keys.hmacShaKeyFor(keyBytes);
@@ -30,11 +35,10 @@ public class JwtUtils {
         }
 
         /**
-         * Extract all claims from token in a single parse operation.
-         * Use this instead of calling individual getXxxFromToken methods.
+         * Extracts the JWT's id, subject (email), and role in a single parse operation.
          *
-         * @param token JWT token string
-         * @return JwtClaims record containing id, email, and role
+         * @param token the JWT string to parse
+         * @return a JwtClaims containing the token's id, email (subject), and role
          */
         public JwtClaims extractAllClaims(String token) {
                 Claims claims = Jwts.parser()
@@ -49,7 +53,12 @@ public class JwtUtils {
                                 claims.get("role", String.class));
         }
 
-        // Individual getters kept for backward compatibility
+        /**
+         * Extracts the email stored as the JWT subject.
+         *
+         * @param token the compact JWT string to parse
+         * @return the subject claim (email) contained in the token
+         */
         public String getEmailFromToken(String token) {
                 return Jwts.parser()
                                 .verifyWith(getSigningKey())

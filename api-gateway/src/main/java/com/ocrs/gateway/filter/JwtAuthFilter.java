@@ -38,10 +38,29 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
         @Value("${jwt.secret}")
         private String jwtSecret;
 
+        /**
+         * Creates a JwtAuthFilter and registers its configuration type.
+         *
+         * <p>Initializes the filter factory with the nested {@link Config} class so Spring Cloud Gateway
+         * can bind route-specific configuration to instances of this filter.</p>
+         */
         public JwtAuthFilter() {
                 super(Config.class);
         }
 
+        /**
+         * Create a GatewayFilter that validates incoming JWT bearer tokens, enforces an optional required role,
+         * and injects authenticated user information into downstream requests.
+         *
+         * The filter skips validation for OPTIONS preflight requests, rejects missing or malformed Authorization
+         * headers with structured JSON error responses, handles common JWT failure cases with appropriate HTTP
+         * statuses and error codes, and when successful adds X-User-Id, X-User-Email, and X-User-Role headers.
+         *
+         * @param config filter configuration; if {@code config.getRequiredRole()} is non-empty, the filter
+         *               requires the JWT's "role" claim to match (case-insensitive) that value
+         * @return a GatewayFilter that performs JWT validation, optional role enforcement, error response generation,
+         *         and downstream request mutation to include user identity headers
+         */
         @Override
         public GatewayFilter apply(Config config) {
                 return (exchange, chain) -> {
@@ -125,11 +144,12 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
         }
 
         /**
-         * validate jwt token and extract claims in a single parse operation.
+         * Parse and validate a JWT using the configured secret and return its claims payload.
          *
-         * @param token jwt token string
-         * @return claims object containing all token claims
-         * @throws jwtexception if token is invalid
+         * Validates the token signature and extracts the Claims contained in the signed JWT.
+         *
+         * @return the token's Claims payload
+         * @throws io.jsonwebtoken.JwtException if the token is expired, malformed, unsupported, has empty claims, or otherwise invalid
          */
         private Claims validateAndExtractClaims(String token) {
                 SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
@@ -141,16 +161,17 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
         }
 
         /**
-         * build a structured json error response consistent with auth-service and
-         * backend-monolith.
+         * Build and write a structured JSON error response matching the auth-service/backend-monolith format.
          *
-         * @param exchange  server web exchange
-         * @param message   human-readable error message
-         * @param status    http status code
-         * @param path      request path
-         * @param errorcode machine-readable error code
-         * @return mono<void> representing the error response
-         **/
+         * The JSON contains fields: `success` (false), `message`, `path`, `timestamp`, and `errorCode`.
+         *
+         * @param exchange  the current server web exchange used to obtain the response
+         * @param message   human-readable error message placed in the `message` field
+         * @param status    HTTP status to set on the response
+         * @param path      request path placed in the `path` field
+         * @param errorCode machine-readable error code placed in the `errorCode` field
+         * @return a Mono that completes when the JSON error response has been written to the response
+         */
         private Mono<Void> buildErrorResponse(ServerWebExchange exchange, String message,
                         HttpStatus status, String path, String errorCode) {
                 ServerHttpResponse response = exchange.getResponse();
@@ -173,7 +194,12 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
                 return response.writeWith(Mono.just(buffer));
         }
 
-        // escape special characters in json string values.
+        /**
+         * Escape characters in a string so it is safe to embed as a JSON string value.
+         *
+         * @param value the input string to escape; may be null
+         * @return the input with backslashes, double quotes, newline, carriage return, and tab characters escaped; returns an empty string if {@code value} is null
+         */
         private String escapeJsonString(String value) {
                 if (value == null) {
                         return "";
@@ -192,10 +218,20 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
         public static class Config {
                 private String requiredRole;
 
+                /**
+                 * The configured role required to access routes protected by this filter.
+                 *
+                 * @return the required role string, or {@code null} if none is configured
+                 */
                 public String getRequiredRole() {
                         return requiredRole;
                 }
 
+                /**
+                 * Sets the role required for accessing routes protected by this filter.
+                 *
+                 * @param requiredRole the role name to require (case-insensitive); set to null or empty to disable role enforcement
+                 */
                 public void setRequiredRole(String requiredRole) {
                         this.requiredRole = requiredRole;
                 }

@@ -90,6 +90,14 @@ public class MissingPersonService {
                 }
         }
 
+        /**
+         * Create and persist a missing-person report, optionally auto-assign it to the least-loaded active authority,
+         * send a detailed notification to external services, and log the filing event.
+         *
+         * @param userId the ID of the user filing the report
+         * @param request the missing-person report payload
+         * @return an ApiResponse containing the created MissingPerson on success, or an error ApiResponse with a message on failure
+         */
         @Transactional
         public ApiResponse<MissingPerson> fileReport(Long userId, MissingPersonRequest request) {
                 try {
@@ -221,6 +229,18 @@ public class MissingPersonService {
                                 .orElse(ApiResponse.error("Report not found"));
         }
 
+        /**
+         * Updates the status and records an update for a missing-person report.
+         *
+         * Performs validation (report existence, authority ownership, and disallows updates to CLOSED reports),
+         * applies the optional new status, persists the changed report and a corresponding Update record,
+         * sends a detailed update notification to the report owner, and logs an update event.
+         *
+         * @param reportId    the identifier of the missing-person report to update
+         * @param authorityId the identifier of the authority performing the update
+         * @param request     update details; may include `updateType`, optional `newStatus`, and `comment`
+         * @return            an ApiResponse containing the updated MissingPerson on success; on failure contains an error message
+         */
         @Transactional
         public ApiResponse<MissingPerson> updateReportStatus(Long reportId, Long authorityId, UpdateRequest request) {
                 MissingPerson report = missingPersonRepository.findById(reportId).orElse(null);
@@ -301,6 +321,18 @@ public class MissingPersonService {
                 return missingPersonRepository.findAll();
         }
 
+        /**
+         * Reassigns a missing-person report to a different authority.
+         *
+         * Updates the report's authority, records a REASSIGNMENT update, sends a reassignment notification
+         * and logs the reassignment event.
+         *
+         * @param reportId       the identifier of the missing-person report to reassign
+         * @param newAuthorityId the identifier of the authority to assign the report to
+         * @return               an ApiResponse containing the updated MissingPerson on success;
+         *                       an error ApiResponse if the report is not found, the authority does not exist,
+         *                       or the report is already assigned to the given authority
+         */
         @Transactional
         public ApiResponse<MissingPerson> reassignReport(Long reportId, Long newAuthorityId) {
                 MissingPerson report = missingPersonRepository.findById(reportId).orElse(null);

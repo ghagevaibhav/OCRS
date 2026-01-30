@@ -65,7 +65,17 @@ public class CorsWebFilter implements WebFilter {
                         "X-RateLimit-Limit",
                         "X-RateLimit-Reset");
 
-        private static final long MAX_AGE = 3600L; // 1 hour cache for preflight
+        private static final long MAX_AGE = 3600L; /**
+         * Applies CORS validation and response headers to incoming requests, and handles OPTIONS preflight requests.
+         *
+         * If the request lacks an Origin header the filter delegates to the rest of the chain. If the Origin is not allowed
+         * the filter responds with 403 Forbidden and completes. For allowed origins the appropriate CORS response headers
+         * are added; if the request method is OPTIONS the filter responds with 200 OK and completes, otherwise it continues
+         * the filter chain so normal request processing proceeds with the CORS headers included in the response.
+         *
+         * @return a Mono that completes when request handling finishes; completes immediately after sending a 403 for
+         *         disallowed origins or after responding to an OPTIONS preflight, otherwise completes when downstream handling completes.
+         */
 
         @Override
         @NonNull
@@ -103,8 +113,12 @@ public class CorsWebFilter implements WebFilter {
         }
 
         /**
-         * Check if the origin is in the allowed list.
-         * Supports wildcard patterns like http://localhost:*
+         * Determines whether the provided Origin header value is allowed by the configured allowlist.
+         *
+         * Supports exact matches, wildcard port patterns (e.g., "http://localhost:*" matches "http://localhost:8080" and "http://localhost"), and general wildcard patterns using `*`.
+         *
+         * @param origin the Origin header value to check; may be null
+         * @return `true` if the origin matches any configured allowlist entry, `false` otherwise
          */
         private boolean isOriginAllowed(String origin) {
                 if (origin == null) {
@@ -151,7 +165,17 @@ public class CorsWebFilter implements WebFilter {
                 return false;
         }
  
-        //add necessary CORS headers to the response.
+        /**
+         * Adds the CORS response headers for the specified origin.
+         *
+         * Sets `Access-Control-Allow-Origin` to the provided origin, enables credentials,
+         * configures allowed methods, allowed headers, exposed headers, and max age,
+         * and adds `Vary` headers for `Origin`, `Access-Control-Request-Method`, and
+         * `Access-Control-Request-Headers`.
+         *
+         * @param response the HTTP response to which CORS headers will be added
+         * @param origin the request Origin value to echo into `Access-Control-Allow-Origin`
+         */
          
         private void addCorsHeaders(ServerHttpResponse response, String origin) {
                 HttpHeaders headers = response.getHeaders();

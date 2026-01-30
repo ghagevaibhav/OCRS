@@ -22,8 +22,10 @@ public class CustomUserDetailsService implements UserDetailsService {
         private final AdminRepository adminRepository;
 
         /**
-         * Load user by email (searches all repositories).
-         * Priority: User -> Authority -> Admin
+         * Locate a user principal by email, searching repositories in this order: User, Authority, Admin.
+         *
+         * @return the corresponding UserDetails representing the found principal
+         * @throws UsernameNotFoundException if no matching user is found for the given email
          */
         @Override
         public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
@@ -38,13 +40,12 @@ public class CustomUserDetailsService implements UserDetailsService {
         }
 
         /**
-         * Load user by email and expected role (more efficient for login).
-         * Directly queries the appropriate repository based on role.
+         * Load a UserDetails by email using the specified role.
          *
-         * @param email User's email
-         * @param role  Expected role (USER, AUTHORITY, ADMIN)
-         * @return UserDetails for the user
-         * @throws UsernameNotFoundException if user not found
+         * @param email the email address of the account to load
+         * @param role  expected role name to select the repository; one of "USER", "AUTHORITY", or "ADMIN"
+         * @return the UserDetails for the located account
+         * @throws UsernameNotFoundException if no account is found for the email in the chosen role or if the role is invalid
          */
         
         public UserDetails loadUserByEmailAndRole(String email, String role)
