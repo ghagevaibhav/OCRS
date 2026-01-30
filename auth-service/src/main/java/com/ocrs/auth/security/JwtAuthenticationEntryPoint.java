@@ -28,6 +28,18 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationEntryPoint.class);
         private final ObjectMapper objectMapper;
 
+        /**
+         * Produce a standardized JSON 401 Unauthorized response and log the authentication failure.
+         *
+         * The response body is a JSON object with the fields: `success` (false), `message` ("Unauthorized: " + exception message),
+         * `path` (request URI), and `timestamp` (current time).
+         *
+         * @param request the HTTP request that triggered the authentication failure
+         * @param response the HTTP response to populate with the JSON error payload and status
+         * @param authException the authentication exception that caused the unauthorized response
+         * @throws IOException if an I/O error occurs while writing the response
+         * @throws ServletException if a servlet error occurs processing the request
+         */
         @Override
         public void commence(HttpServletRequest request, HttpServletResponse response,
                         AuthenticationException authException) throws IOException, ServletException {

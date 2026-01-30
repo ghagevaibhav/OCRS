@@ -45,11 +45,21 @@ public class RefreshToken {
         @Column(updatable = false)
         private Instant createdAt;
 
+        /**
+         * Sets the entity's creation timestamp to the current instant before it is persisted.
+         *
+         * Invoked by the JPA lifecycle on pre-persist to initialize the `createdAt` field.
+         */
         @PrePersist
         protected void onCreate() {
                 createdAt = Instant.now();
         }
 
+        /**
+         * Determines whether the refresh token has passed its expiry timestamp.
+         *
+         * @return `true` if the current time is after `expiryDate`, `false` otherwise.
+         */
         public boolean isExpired() {
                 return Instant.now().isAfter(expiryDate);
         }

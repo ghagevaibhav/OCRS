@@ -30,6 +30,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         private final JwtUtils jwtUtils;
 
+        /**
+         * Validates a JWT from the Authorization header, sets an authenticated UserPrincipal
+         * in the SecurityContext, and exposes the user's id, email, and role as request attributes.
+         *
+         * If a valid Bearer token is present, the method extracts all claims once, builds a
+         * UserPrincipal from those claims, creates an authentication token with the principal's
+         * authorities, attaches request details, and assigns the authentication to the current
+         * SecurityContext. Processing continues down the filter chain regardless of authentication outcome.
+         *
+         * @param request     the incoming HTTP request
+         * @param response    the HTTP response
+         * @param filterChain the filter chain to continue processing the request
+         */
         @Override
         protected void doFilterInternal(HttpServletRequest request,
                         HttpServletResponse response,
@@ -69,10 +82,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         /**
-         * Extract JWT token from Authorization header.
+         * Extracts the Bearer JWT from the Authorization header.
          *
-         * @param request HTTP request
-         * @return JWT token string or null if not found
+         * @param request the HTTP request to inspect
+         * @return the JWT token string if the Authorization header starts with "Bearer ", {@code null} otherwise
          */
         private String parseJwt(HttpServletRequest request) {
                 String headerAuth = request.getHeader("Authorization");

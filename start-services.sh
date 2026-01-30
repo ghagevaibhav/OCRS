@@ -34,7 +34,7 @@ check_port_free() {
     return 0
 }
 
-# function to wait for port to be listening (used for dependencies)
+# wait_for_port waits for a TCP port on a host to accept connections, printing progress and returning non-zero if a configurable timeout is reached.
 wait_for_port() {
     local host=$1
     local port=$2
@@ -192,4 +192,3 @@ echo ""
 echo "📋 Logs: $LOG_DIR/"
 echo "🛑 To stop: ./stop-services.sh"
 echo ""
-

@@ -28,11 +28,24 @@ public class JwtUtils {
         public record JwtClaims(Long id, String email, String role) {
         }
 
+        /**
+         * Builds an HMAC SHA SecretKey from the configured JWT secret.
+         *
+         * @return the SecretKey derived from the UTF-8 bytes of `jwtSecret`, suitable for HMAC SHA signing/verification
+         */
         private SecretKey getSigningKey() {
                 byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
                 return Keys.hmacShaKeyFor(keyBytes);
         }
 
+        /**
+         * Create a signed JWT containing the given user's id, email, and role.
+         *
+         * @param id    the user's identifier to include as the `id` claim
+         * @param email the user's email to set as the token subject
+         * @param role  the user's role to include as the `role` claim
+         * @return      a compact JWT string signed with the configured secret and expiring after the configured duration
+         */
         public String generateToken(Long id, String email, String role) {
                 return Jwts.builder()
                                 .subject(email)
@@ -45,11 +58,10 @@ public class JwtUtils {
         }
 
         /**
-         * Extract all claims from token in a single parse operation.
-         * Use this instead of calling individual getXxxFromToken methods.
+         * Parse the JWT and return its id, email (subject), and role in a single operation.
          *
-         * @param token JWT token string
-         * @return JwtClaims record containing id, email, and role
+         * @param token the JWT string to parse and verify
+         * @return a {@code JwtClaims} record containing the token's id, email (subject), and role
          */
         public JwtClaims extractAllClaims(String token) {
                 Claims claims = Jwts.parser()
@@ -64,7 +76,12 @@ public class JwtUtils {
                                 claims.get("role", String.class));
         }
 
-        // Individual getters kept for backward compatibility
+        /**
+         * Extracts the email address stored as the JWT subject from the provided token.
+         *
+         * @param token the JWT string to parse and verify
+         * @return the email from the token's subject claim
+         */
         public String getEmailFromToken(String token) {
                 return Jwts.parser()
                                 .verifyWith(getSigningKey())

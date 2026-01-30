@@ -47,8 +47,9 @@ public class SecurityConfig {
         private List<String> allowedMethods;
 
         /**
-         * BCrypt password encoder with strength 12 for secure password hashing.
-         * Backward compatible with existing passwords encoded with default strength.
+         * Create a BCrypt PasswordEncoder configured with strength 12 for hashing passwords.
+         *
+         * @return a PasswordEncoder that uses BCrypt with strength 12; compatible with passwords encoded using the default BCrypt strength
          */
         @Bean
         public PasswordEncoder passwordEncoder() {
@@ -56,9 +57,9 @@ public class SecurityConfig {
         }
 
         /**
-         * DaoAuthenticationProvider configured with our UserDetailsService and
-         * PasswordEncoder.
-         * This is the standard Spring Security way to authenticate users.
+         * Creates a DaoAuthenticationProvider configured with the application's UserDetailsService and PasswordEncoder.
+         *
+         * @return a DaoAuthenticationProvider configured with the application's UserDetailsService and PasswordEncoder
          */
         @Bean
         public DaoAuthenticationProvider authenticationProvider() {
@@ -69,8 +70,11 @@ public class SecurityConfig {
         }
 
         /**
-         * AuthenticationManager bean for programmatic authentication (e.g., in login
-         * service).
+         * Exposes the AuthenticationManager from the provided AuthenticationConfiguration for programmatic authentication.
+         *
+         * @param config the AuthenticationConfiguration to obtain the AuthenticationManager from
+         * @return the configured AuthenticationManager
+         * @throws Exception if the AuthenticationManager cannot be obtained
          */
         @Bean
         public AuthenticationManager authenticationManager(
@@ -79,7 +83,14 @@ public class SecurityConfig {
         }
 
         /**
-         * Main security filter chain configuration.
+         * Configure the application's security filter chain.
+         *
+         * Configures CORS, disables CSRF, enforces stateless session management, sets exception
+         * handling and header policies, permits unauthenticated access to authentication, internal,
+         * admin authorities, and actuator endpoints, requires authentication for all other requests,
+         * registers the authentication provider and JWT authentication filter.
+         *
+         * @return the configured SecurityFilterChain
          */
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -108,7 +119,10 @@ public class SecurityConfig {
         }
 
         /**
-         * CORS configuration with externalized allowed origins.
+         * Create a CorsConfigurationSource that applies CORS settings (allowed origins, methods,
+         * headers, exposed headers, credentials, and max age) to all request paths.
+         *
+         * @return the configured CorsConfigurationSource registered for all paths ("/**")
          */
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {

@@ -47,6 +47,19 @@ public class AuthService {
         @Autowired
         private LoggingClient loggingClient;
 
+        /**
+         * Register a new user, persist their account, and issue authentication tokens.
+         *
+         * <p>Validates that the email (and Aadhaar number if provided) are not already registered.
+         * On success, creates the user, logs the registration event, generates an access token and a
+         * refresh token, and returns authentication details.
+         *
+         * @param request registration details for the new user (email, password, full name, phone,
+         *                address, and optional Aadhaar number)
+         * @return an ApiResponse containing an AuthResponse with the access token, refresh token,
+         *         user id, email, full name, role "USER", and access token expiry in seconds; or an
+         *         error ApiResponse with a failure message (for example, duplicate email or Aadhaar)
+         */
         @Transactional
         public ApiResponse<AuthResponse> registerUser(UserRegisterRequest request) {
                 // check if email exists
@@ -88,6 +101,15 @@ public class AuthService {
                 return ApiResponse.success("User registered successfully", authResponse);
         }
 
+        /**
+         * Register a new authority account, persist it, log the registration, and return issued authentication tokens.
+         *
+         * @param request registration details for the authority (email, password, fullName, badgeNumber, designation,
+         *                stationName, stationAddress, phone)
+         * @return an ApiResponse containing an AuthResponse with the access token, refresh token, authority id, email,
+         *         full name, role "AUTHORITY", and access token expiration (in seconds); on failure returns an error
+         *         ApiResponse (for example when email or badge number is already registered)
+         */
         @Transactional
         public ApiResponse<AuthResponse> registerAuthority(AuthorityRegisterRequest request) {
                 // check if email exists
@@ -130,6 +152,14 @@ public class AuthService {
                 return ApiResponse.success("Authority registered successfully", authResponse);
         }
 
+        /**
+         * Authenticate a principal based on the role specified in the login request and return authentication tokens and user details.
+         *
+         * The method dispatches authentication to the role-specific login flow determined by `request.getRole()` (accepted values: "USER", "AUTHORITY", "ADMIN"). If the role is not recognized, an error response is returned.
+         *
+         * @param request the login request containing credentials and a role (email, password, role)
+         * @return an ApiResponse containing an AuthResponse with access and refresh tokens and principal details on successful authentication; an error ApiResponse otherwise (for example, invalid role or failed credentials)
+         */
         public ApiResponse<AuthResponse> login(LoginRequest request) {
                 String role = request.getRole().toUpperCase();
 
@@ -145,6 +175,13 @@ public class AuthService {
                 }
         }
 
+        /**
+         * Authenticate a user with the given email and password, issuing an access token and a rotating refresh token.
+         *
+         * <p>On success this method creates and persists a refresh token and records a login event.</p>
+         *
+         * @returns an ApiResponse containing an AuthResponse with the access token, refresh token, user id, email, full name, role, and access token expiry (in seconds) on success; an error ApiResponse with an explanatory message otherwise.
+         */
         @Transactional
         private ApiResponse<AuthResponse> loginUser(String email, String password) {
                 User user = userRepository.findByEmail(email)
@@ -177,6 +214,18 @@ public class AuthService {
                 return ApiResponse.success("Login successful", authResponse);
         }
 
+        /**
+         * Authenticate an authority by email and password and issue authentication tokens.
+         *
+         * Attempts to find an Authority by the provided email, verifies the account is active
+         * and the password matches, then generates an access token and a rotating refresh token.
+         *
+         * @param email    the authority's email used to locate the account
+         * @param password the plaintext password to verify
+         * @return an ApiResponse containing an AuthResponse with access token, refresh token,
+         *         authority identifiers, display name, role ("AUTHORITY"), and access-token
+         *         expiry (in seconds) on success; an error ApiResponse with a descriptive message on failure
+         */
         @Transactional
         private ApiResponse<AuthResponse> loginAuthority(String email, String password) {
                 Authority authority = authorityRepository.findByEmail(email)
@@ -209,6 +258,14 @@ public class AuthService {
                 return ApiResponse.success("Login successful", authResponse);
         }
 
+        /**
+         * Authenticate an admin and return an authentication response containing access and refresh tokens and admin details.
+         *
+         * @param email    the admin's email address
+         * @param password the plaintext password to verify
+         * @return         an ApiResponse containing an AuthResponse with access token, refresh token, admin id, email, full name, role, and access token TTL in seconds on success;
+         *                 an error ApiResponse with a message if credentials are invalid or the account is deactivated
+         */
         @Transactional
         private ApiResponse<AuthResponse> loginAdmin(String email, String password) {
                 Admin admin = adminRepository.findByEmail(email)
@@ -242,7 +299,12 @@ public class AuthService {
         }
 
         /**
-         * Refresh access token using a valid refresh token.
+         * Issues a new access token and a rotated refresh token for the user represented by the provided refresh token.
+         *
+         * @param refreshTokenStr the refresh token string to verify and rotate
+         * @return an ApiResponse containing an AuthResponse on success with the new access token, the new refresh token,
+         *         user id, email, full name, role, and access token lifetime in seconds; on failure, an error response with
+         *         a descriptive message (e.g., token not found, expired, or user not found)
          */
         @Transactional
         public ApiResponse<AuthResponse> refreshToken(String refreshTokenStr) {
@@ -308,7 +370,10 @@ public class AuthService {
         }
 
         /**
-         * Revoke a specific refresh token.
+         * Revoke the specified refresh token so it can no longer be used.
+         *
+         * @param refreshToken the refresh token string to revoke
+         * @return `true` if the token was successfully revoked, `false` otherwise
          */
         @Transactional
         public ApiResponse<Boolean> revokeRefreshToken(String refreshToken) {
@@ -316,7 +381,13 @@ public class AuthService {
                 return ApiResponse.success("Token revoked successfully", true);
         }
 
-        // logout endpoint - logs the logout event and revokes refresh tokens
+        /**
+         * Log out a user by revoking all of their refresh tokens for the given role and recording the logout event.
+         *
+         * @param userId the identifier of the user to log out
+         * @param role   the role context (e.g., "USER", "AUTHORITY", "ADMIN") for which tokens will be revoked
+         * @return       `true` if the logout operation completed successfully, `false` otherwise
+         */
         @Transactional
         public ApiResponse<Boolean> logout(Long userId, String role) {
                 // Revoke all refresh tokens for this user/role
