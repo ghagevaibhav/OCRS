@@ -6,9 +6,14 @@ const emailRoutes = require('./routes/emailRoutes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Parse CORS origins from environment (comma-separated) or use defaults
+const corsOrigins = process.env.CORS_ORIGINS
+        ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+        : ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:3001'];
+
 // Middleware
 app.use(cors({
-        origin: ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:3001'],
+        origin: corsOrigins,
         credentials: true
 }));
 app.use(express.json());
