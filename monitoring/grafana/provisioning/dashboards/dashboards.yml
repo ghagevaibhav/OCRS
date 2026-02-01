@@ -1,0 +1,12 @@
+# Grafana dashboards provisioning
+apiVersion: 1
+
+providers:
+  - name: 'OCRS Dashboards'
+    orgId: 1
+    folder: 'OCRS'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

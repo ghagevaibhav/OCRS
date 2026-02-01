@@ -9,6 +9,14 @@ obj/
 .env
 .env.local
 .env.*.local
+.env.production
+
+# SSL certificates and certbot
+certbot/
+nginx/ssl/
+
+# Monitoring data
+monitoring/grafana/data/
 
 # IDE
 .idea/

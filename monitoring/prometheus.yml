@@ -1,0 +1,46 @@
+# =============================================================================
+# Prometheus Configuration for OCRS
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Eureka Server metrics
+  - job_name: 'eureka-server'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['eureka-server:8761']
+    scrape_interval: 30s
+
+  # API Gateway metrics
+  - job_name: 'api-gateway'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['api-gateway:8090']
+    scrape_interval: 15s
+
+  # Auth Service metrics
+  - job_name: 'auth-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['auth-service:8081']
+    scrape_interval: 30s
+
+  # Backend Service metrics
+  - job_name: 'backend-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['backend-monolith:8080']
+    scrape_interval: 30s
+
+  # Redis metrics (using redis_exporter if added later)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
