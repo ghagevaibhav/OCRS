@@ -1,27 +1,48 @@
 const nodemailer = require('nodemailer');
+const { MailtrapTransport } = require("mailtrap");
 
-// Create transporter with Mailtrap SMTP configuration
-// Matches Mailtrap's provided SMTP integration code exactly
+// Create transporter - uses Mailtrap API if token is available, otherwise falls back to SMTP
 const createTransporter = () => {
-    return nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'live.smtp.mailtrap.io',
-        port: parseInt(process.env.SMTP_PORT) || 587,
-        auth: {
-            user: process.env.SMTP_USER || 'api',
-            pass: process.env.SMTP_PASS
-        }
-    });
+    const mailtrapToken = process.env.MAILTRAP_TOKEN;
+
+    if (mailtrapToken) {
+        // Use Mailtrap API transport (bypasses SMTP port blocking)
+        console.log(`[${new Date().toISOString()}] Using Mailtrap API transport`);
+        return nodemailer.createTransport(
+            MailtrapTransport({
+                token: mailtrapToken,
+            })
+        );
+    } else {
+        // Fallback to traditional SMTP
+        console.log(`[${new Date().toISOString()}] Using SMTP transport`);
+        return nodemailer.createTransport({
+            host: process.env.SMTP_HOST || 'live.smtp.mailtrap.io',
+            port: parseInt(process.env.SMTP_PORT) || 587,
+            auth: {
+                user: process.env.SMTP_USER || 'api',
+                pass: process.env.SMTP_PASS
+            }
+        });
+    }
 };
 
 // Verify transporter connection on startup
 const verifyTransporter = async () => {
     try {
         const transporter = createTransporter();
+
+        // For Mailtrap API, we can't verify in the traditional way
+        if (process.env.MAILTRAP_TOKEN) {
+            console.log(`[${new Date().toISOString()}] Mailtrap API transport initialized (token present)`);
+            return true;
+        }
+
         await transporter.verify();
         console.log(`[${new Date().toISOString()}] SMTP connection verified successfully`);
         return true;
     } catch (error) {
-        console.error(`[${new Date().toISOString()}] SMTP connection verification failed:`, error.message);
+        console.error(`[${new Date().toISOString()}] Transport verification failed:`, error.message);
         return false;
     }
 };
@@ -112,7 +133,7 @@ const templates = {
                         <p style="margin: 0;"><strong>Assigned Authority:</strong> ${data.authorityName || 'Pending Assignment'}</p>
                     </div>
 
-                    <p>You can track the status of your report using the case number above. Log in to your dashboard to view the complete details and updates.</p>
+                    <p>You can track the status of your report using the case number above.</p>
                     <p style="color: #64748b; font-size: 14px;">This is an automated message. Please do not reply.</p>
                 </div>
                 <div style="background: #1e293b; padding: 15px; text-align: center;">
@@ -135,7 +156,7 @@ const templates = {
                 <div style="padding: 30px; background: #f8fafc;">
                     <h2 style="color: #047857;">Your Missing Person Report Has Been Updated</h2>
                     <p>Dear Citizen,</p>
-                    <p>An authority has made an update to your missing person report. Please find the details below:</p>
+                    <p>An authority has made an update to your missing person report.</p>
                     
                     <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
                         <h3 style="color: #047857; margin-top: 0;">Case Details</h3>
@@ -214,7 +235,6 @@ const templates = {
         `
     }),
 
-
     firUpdate: (data) => ({
         subject: `FIR Update - ${data.firNumber || data.reference || 'OCRS'}`,
         html: `
@@ -226,7 +246,7 @@ const templates = {
                 <div style="padding: 30px; background: #f8fafc;">
                     <h2 style="color: #1e40af;">Your FIR Has Been Updated</h2>
                     <p>Dear Citizen,</p>
-                    <p>An authority has made an update to your FIR. Please find the details below:</p>
+                    <p>An authority has made an update to your FIR.</p>
                     <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
                         <p><strong>FIR Number:</strong> ${data.firNumber || data.reference || 'N/A'}</p>
                         <p><strong>Update Type:</strong> ${data.updateType || 'Status Update'}</p>
@@ -234,11 +254,10 @@ const templates = {
                         ${data.previousStatus ? `<p><strong>Previous Status:</strong> ${data.previousStatus}</p>` : ''}
                         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
                         <p><strong>Updated By:</strong> ${data.authorityName || 'Assigned Authority'}</p>
-                        ${data.authorityId ? `<p><strong>Authority ID:</strong> ${data.authorityId}</p>` : ''}
                         <p><strong>Updated At:</strong> ${formatTimestamp(data.timestamp)}</p>
                         ${data.comment ? `<div style="background: #f1f5f9; padding: 10px; border-radius: 4px; margin-top: 10px;"><strong>Comment:</strong><br/>${data.comment}</div>` : ''}
                     </div>
-                    <p>Log in to your dashboard to view the complete case details and history.</p>
+                    <p>Log in to your dashboard to view the complete case details.</p>
                     <p style="color: #64748b; font-size: 14px;">This is an automated message. Please do not reply.</p>
                 </div>
                 <div style="background: #1e293b; padding: 15px; text-align: center;">
@@ -304,8 +323,14 @@ const sendEmail = async (to, templateName, data, retryCount = 0) => {
         const transporter = createTransporter();
         const template = templates[templateName] ? templates[templateName](data) : templates.generic(data);
 
+        const fromEmail = process.env.SMTP_FROM_EMAIL || 'noreply@ghagevaibhav.xyz';
+        const fromName = process.env.SMTP_FROM_NAME || 'OCRS System';
+
         const mailOptions = {
-            from: `"${process.env.SMTP_FROM_NAME || 'OCRS System'}" <${process.env.SMTP_FROM_EMAIL || 'noreply@ghagevaibhav.xyz'}>`,
+            from: {
+                address: fromEmail,
+                name: fromName
+            },
             to: to,
             subject: template.subject,
             html: template.html
@@ -337,10 +362,9 @@ const processRetryQueue = async () => {
     console.log(`[${new Date().toISOString()}] Processing retry queue: ${failedEmailQueue.length} emails`);
 
     const itemsToProcess = [...failedEmailQueue];
-    failedEmailQueue.length = 0; // Clear the queue
+    failedEmailQueue.length = 0;
 
     for (const item of itemsToProcess) {
-        // Check if enough time has passed
         if (Date.now() - item.addedAt >= RETRY_DELAY_MS) {
             await sendEmail(item.to, item.templateName, item.data, item.retryCount);
         } else {

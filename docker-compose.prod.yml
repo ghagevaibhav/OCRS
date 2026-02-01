@@ -225,6 +225,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - MAILTRAP_TOKEN=${MAILTRAP_TOKEN}
       - SMTP_HOST=${SMTP_HOST:-live.smtp.mailtrap.io}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_SECURE=${SMTP_SECURE:-false}
