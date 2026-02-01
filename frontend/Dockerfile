@@ -1,5 +1,10 @@
 FROM node:18-alpine as build
 WORKDIR /app
+
+# Accept build-time argument for API URL
+ARG VITE_API_GATEWAY_URL=http://localhost:8090
+ENV VITE_API_GATEWAY_URL=$VITE_API_GATEWAY_URL
+
 COPY package*.json ./
 RUN npm install
 COPY . .
