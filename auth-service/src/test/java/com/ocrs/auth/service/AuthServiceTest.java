@@ -1,6 +1,7 @@
 package com.ocrs.auth.service;
 
 import com.ocrs.auth.dto.*;
+import com.ocrs.auth.entity.RefreshToken;
 import com.ocrs.auth.entity.User;
 import com.ocrs.auth.repository.AdminRepository;
 import com.ocrs.auth.repository.AuthorityRepository;
@@ -14,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -42,12 +44,16 @@ class AuthServiceTest {
         @Mock
         private LoggingClient loggingClient;
 
+        @Mock
+        private RefreshTokenService refreshTokenService;
+
         @InjectMocks
         private AuthService authService;
 
         private UserRegisterRequest userRegisterRequest;
         private LoginRequest loginRequest;
         private User testUser;
+        private RefreshToken testRefreshToken;
 
         @BeforeEach
         void setUp() {
@@ -72,6 +78,16 @@ class AuthServiceTest {
                                 .fullName("Test User")
                                 .isActive(true)
                                 .build();
+
+                // setup test refresh token
+                testRefreshToken = RefreshToken.builder()
+                                .id(1L)
+                                .token("testRefreshToken")
+                                .userId(1L)
+                                .userRole("USER")
+                                .expiryDate(Instant.now().plusSeconds(604800))
+                                .revoked(false)
+                                .build();
         }
 
         @Test
@@ -81,6 +97,7 @@ class AuthServiceTest {
                 when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
                 when(userRepository.save(any(User.class))).thenReturn(testUser);
                 when(jwtUtils.generateToken(anyLong(), anyString(), anyString())).thenReturn("testToken");
+                when(refreshTokenService.createRefreshToken(anyLong(), anyString())).thenReturn(testRefreshToken);
 
                 // act
                 ApiResponse<AuthResponse> response = authService.registerUser(userRegisterRequest);
@@ -113,6 +130,7 @@ class AuthServiceTest {
                 when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(testUser));
                 when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
                 when(jwtUtils.generateToken(anyLong(), anyString(), anyString())).thenReturn("testToken");
+                when(refreshTokenService.createRefreshToken(anyLong(), anyString())).thenReturn(testRefreshToken);
 
                 // act
                 ApiResponse<AuthResponse> response = authService.login(loginRequest);
@@ -160,32 +178,6 @@ class AuthServiceTest {
                 // assert
                 assertTrue(response.isSuccess());
                 assertEquals("Logged out successfully", response.getMessage());
-                verify(loggingClient).logAuthEvent(eq("LOGOUT"), eq(1L), anyString());
-        }
-
-        @Test
-        void validateToken_valid() {
-                // arrange
-                when(jwtUtils.validateToken(anyString())).thenReturn(true);
-
-                // act
-                ApiResponse<Boolean> response = authService.validateToken("validToken");
-
-                // assert
-                assertTrue(response.isSuccess());
-                assertTrue(response.getData());
-        }
-
-        @Test
-        void validateToken_invalid() {
-                // arrange
-                when(jwtUtils.validateToken(anyString())).thenReturn(false);
-
-                // act
-                ApiResponse<Boolean> response = authService.validateToken("invalidToken");
-
-                // assert
-                assertFalse(response.isSuccess());
-                assertEquals("Invalid or expired token", response.getMessage());
+                verify(refreshTokenService).revokeAllUserTokens(1L, "USER");
         }
 }

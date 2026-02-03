@@ -175,7 +175,6 @@ export const authService = {
                         tokenManager.clearTokens()
                 }
         },
-        validate: () => api.get('/api/auth/validate'),
         refreshToken: () => {
                 const refreshToken = tokenManager.getRefreshToken()
                 return api.post('/api/auth/refresh', { refreshToken })

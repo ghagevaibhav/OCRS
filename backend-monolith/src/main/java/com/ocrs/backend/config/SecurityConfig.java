@@ -1,8 +1,8 @@
 package com.ocrs.backend.config;
 
 import com.ocrs.backend.security.CustomAccessDeniedHandler;
+import com.ocrs.backend.security.GatewayAuthFilter;
 import com.ocrs.backend.security.JwtAuthenticationEntryPoint;
-import com.ocrs.backend.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -24,7 +24,10 @@ import java.util.List;
 
 /**
  * Spring Security configuration for backend-monolith.
- * Implements JWT-based stateless authentication with proper error handling.
+ * 
+ * Trusts API Gateway for authentication - gateway validates JWT and forwards
+ * user info via X-User-* headers. This service reads those headers via
+ * GatewayAuthFilter to set up SecurityContext for @PreAuthorize annotations.
  */
 @Configuration
 @EnableWebSecurity
@@ -32,7 +35,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-        private final JwtAuthenticationFilter jwtAuthFilter;
+        private final GatewayAuthFilter gatewayAuthFilter;
         private final JwtAuthenticationEntryPoint authEntryPoint;
         private final CustomAccessDeniedHandler accessDeniedHandler;
 
@@ -52,6 +55,7 @@ public class SecurityConfig {
 
         /**
          * Main security filter chain configuration.
+         * Uses GatewayAuthFilter to read trusted headers from API Gateway.
          */
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -67,14 +71,14 @@ public class SecurityConfig {
                                                 .requestMatchers("/actuator/**").permitAll()
                                                 .requestMatchers("/api/health").permitAll()
                                                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                                                // User endpoints
+                                                // user endpoints
                                                 .requestMatchers("/api/user/**").hasRole("USER")
-                                                // Authority endpoints
+                                                // authority endpoints
                                                 .requestMatchers("/api/authority/**").hasRole("AUTHORITY")
-                                                // Admin endpoints
+                                                // admin endpoints
                                                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                                                 .anyRequest().authenticated())
-                                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterBefore(gatewayAuthFilter, UsernamePasswordAuthenticationFilter.class)
                                 .headers(headers -> headers
                                                 .frameOptions(frame -> frame.deny())
                                                 .contentTypeOptions(content -> {

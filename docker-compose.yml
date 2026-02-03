@@ -62,8 +62,8 @@ services:
   auth-service:
     build: ./auth-service
     container_name: ocrs-auth
-    ports:
-      - "8081:8081"
+    expose:
+      - "8081"  # Internal only - not accessible from host
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://auth-db:3306/ocrs_auth
       SPRING_DATASOURCE_USERNAME: root
@@ -83,13 +83,13 @@ services:
   backend-monolith:
     build: ./backend-monolith
     container_name: ocrs-backend
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"  # Internal only - access through API Gateway
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://backend-db:3306/ocrs_backend
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Makichu#123
-      JWT_SECRET: ocrs-super-secret-jwt-key-2024-change-in-production
+      GATEWAY_SECRET: ocrs-gateway-secret-2024-dev
       SERVICES_AUTH_URL: http://auth-service:8081
       SERVICES_EMAIL_URL: http://email-service:3000
       SERVICES_LOGGING_URL: http://logging-service:5000
@@ -111,6 +111,7 @@ services:
       - "8090:8090"
     environment:
       JWT_SECRET: ocrs-super-secret-jwt-key-2024-change-in-production
+      GATEWAY_SECRET: ocrs-gateway-secret-2024-dev
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       REDIS_HOST: redis
       REDIS_PORT: 6379

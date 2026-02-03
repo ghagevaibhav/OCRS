@@ -31,7 +31,8 @@ public class RateLimitConfig {
 
         /**
          * Alternative key resolver that uses user ID from JWT token.
-         * Useful for user-based rate limiting on authenticated routes.
+         *term
+          Useful for user-based rate limiting on authenticated routes.
          */
         @Bean
         public KeyResolver userKeyResolver() {

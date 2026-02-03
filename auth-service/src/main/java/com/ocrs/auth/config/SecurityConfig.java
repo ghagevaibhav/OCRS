@@ -1,24 +1,14 @@
 package com.ocrs.auth.config;
 
-import com.ocrs.auth.security.CustomAccessDeniedHandler;
-import com.ocrs.auth.security.CustomUserDetailsService;
-import com.ocrs.auth.security.JwtAuthenticationEntryPoint;
-import com.ocrs.auth.security.JwtAuthenticationFilter;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -26,19 +16,15 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * Spring Security configuration for auth-service.
- * Implements JWT-based stateless authentication with proper error handling.
+ * Simplified Spring Security configuration for auth-service.
+ * 
+ * Note: JWT validation is handled by the API Gateway. Auth-service endpoints
+ * are either public (/api/auth/**) or internal (/api/internal/**), so no
+ * request-level authentication is needed here.
  */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(securedEnabled = true, jsr250Enabled = true)
-@RequiredArgsConstructor
 public class SecurityConfig {
-
-        private final JwtAuthenticationFilter jwtAuthFilter;
-        private final CustomUserDetailsService userDetailsService;
-        private final JwtAuthenticationEntryPoint authEntryPoint;
-        private final CustomAccessDeniedHandler accessDeniedHandler;
 
         @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:3000,http://localhost:3001}")
         private List<String> allowedOrigins;
@@ -48,7 +34,6 @@ public class SecurityConfig {
 
         /**
          * BCrypt password encoder with strength 12 for secure password hashing.
-         * Backward compatible with existing passwords encoded with default strength.
          */
         @Bean
         public PasswordEncoder passwordEncoder() {
@@ -56,30 +41,8 @@ public class SecurityConfig {
         }
 
         /**
-         * DaoAuthenticationProvider configured with our UserDetailsService and
-         * PasswordEncoder.
-         * This is the standard Spring Security way to authenticate users.
-         */
-        @Bean
-        public DaoAuthenticationProvider authenticationProvider() {
-                DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-                provider.setUserDetailsService(userDetailsService);
-                provider.setPasswordEncoder(passwordEncoder());
-                return provider;
-        }
-
-        /**
-         * AuthenticationManager bean for programmatic authentication (e.g., in login
-         * service).
-         */
-        @Bean
-        public AuthenticationManager authenticationManager(
-                        AuthenticationConfiguration config) throws Exception {
-                return config.getAuthenticationManager();
-        }
-
-        /**
-         * Main security filter chain configuration.
+         * Simplified security filter chain - permits all requests.
+         * Authentication is handled by API Gateway before requests reach this service.
          */
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -88,17 +51,8 @@ public class SecurityConfig {
                                 .csrf(csrf -> csrf.disable())
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                                .exceptionHandling(ex -> ex
-                                                .authenticationEntryPoint(authEntryPoint)
-                                                .accessDeniedHandler(accessDeniedHandler))
                                 .authorizeHttpRequests(auth -> auth
-                                                .requestMatchers("/api/auth/**").permitAll()
-                                                .requestMatchers("/api/internal/**").permitAll()
-                                                .requestMatchers("/api/admin/authorities/**").permitAll()
-                                                .requestMatchers("/actuator/**").permitAll()
-                                                .anyRequest().authenticated())
-                                .authenticationProvider(authenticationProvider())
-                                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                                                .anyRequest().permitAll())
                                 .headers(headers -> headers
                                                 .frameOptions(frame -> frame.deny())
                                                 .contentTypeOptions(content -> {

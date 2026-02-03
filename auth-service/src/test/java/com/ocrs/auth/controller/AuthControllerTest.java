@@ -2,7 +2,6 @@ package com.ocrs.auth.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ocrs.auth.dto.*;
-import com.ocrs.auth.security.JwtAuthenticationFilter;
 import com.ocrs.auth.security.JwtUtils;
 import com.ocrs.auth.service.AuthService;
 import org.junit.jupiter.api.Test;
@@ -32,9 +31,6 @@ class AuthControllerTest {
 
         @MockBean
         private JwtUtils jwtUtils;
-
-        @MockBean
-        private JwtAuthenticationFilter jwtAuthenticationFilter;
 
         @Autowired
         private ObjectMapper objectMapper;
@@ -113,13 +109,5 @@ class AuthControllerTest {
                                 .param("role", "USER"))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.success").value(true));
-        }
-
-        @Test
-        void health_returnsOk() throws Exception {
-                // act & assert
-                mockMvc.perform(get("/api/auth/health"))
-                                .andExpect(status().isOk())
-                                .andExpect(content().string("Auth Service is running"));
         }
 }

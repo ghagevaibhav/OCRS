@@ -76,23 +76,4 @@ public class AuthController {
                 ApiResponse<Boolean> response = authService.logout(userId, role);
                 return ResponseEntity.ok(response);
         }
-
-        @GetMapping("/validate")
-        public ResponseEntity<ApiResponse<Boolean>> validateToken(
-                        @RequestHeader("Authorization") String authHeader) {
-                if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                        String token = authHeader.substring(7);
-                        ApiResponse<Boolean> response = authService.validateToken(token);
-                        if (response.isSuccess()) {
-                                return ResponseEntity.ok(response);
-                        }
-                        return ResponseEntity.badRequest().body(response);
-                }
-                return ResponseEntity.badRequest().body(ApiResponse.error("No token provided"));
-        }
-
-        @GetMapping("/health")
-        public ResponseEntity<String> health() {
-                return ResponseEntity.ok("Auth Service is running");
-        }
 }

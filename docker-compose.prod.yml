@@ -151,7 +151,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://backend-db:3306/ocrs_backend?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - JWT_SECRET=${JWT_SECRET}
+      - GATEWAY_SECRET=${GATEWAY_SECRET}
       - SERVICES_AUTH_URL=http://auth-service:8081
       - SERVICES_EMAIL_URL=http://email-service:3000
       - SERVICES_LOGGING_URL=http://logging-service:5000
@@ -189,6 +189,7 @@ services:
     environment:
       - JAVA_OPTS=-Xms256m -Xmx512m
       - JWT_SECRET=${JWT_SECRET}
+      - GATEWAY_SECRET=${GATEWAY_SECRET}
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - REDIS_HOST=redis
       - REDIS_PORT=6379

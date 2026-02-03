@@ -28,6 +28,8 @@ spring:
       # Default filters applied to all routes
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        # Add gateway secret for backend service validation
+        - AddRequestHeader=X-Gateway-Secret, ${GATEWAY_SECRET:ocrs-gateway-secret-2024-change-in-production}
         # Add request ID for tracing
         - AddRequestHeader=X-Request-Id, ${random.uuid}
         # Add security headers

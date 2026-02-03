@@ -86,7 +86,7 @@ public class RefreshTokenService {
                 return token;
         }
 
-        /**
+        /*
          * Revokes a specific refresh token.
          */
         @Transactional
@@ -104,7 +104,7 @@ public class RefreshTokenService {
                 logger.info("Revoked all refresh tokens for user {} with role {}", userId, role);
         }
 
-        /**
+        /*
          * Scheduled task to clean up expired tokens.
          * Runs every day at midnight.
          */

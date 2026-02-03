@@ -327,13 +327,6 @@ public class AuthService {
                 return ApiResponse.success("Logged out successfully", true);
         }
 
-        public ApiResponse<Boolean> validateToken(String token) {
-                if (jwtUtils.validateToken(token)) {
-                        return ApiResponse.success("Token is valid", true);
-                }
-                return ApiResponse.error("Invalid or expired token");
-        }
-
         public ApiResponse<AuthorityDTO> updateAuthority(Long id, AuthorityDTO request) {
                 Authority authority = authorityRepository.findById(id).orElse(null);
                 if (authority == null) {
