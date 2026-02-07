@@ -53,7 +53,7 @@ public class ExternalServiceClientTest {
                 // Setup the fluent API chain
                 when(webClient.post()).thenReturn(requestBodyUriSpec);
                 when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-                when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
+                when(requestBodySpec.bodyValue(any(Object.class))).thenReturn(requestHeadersSpec);
                 when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
                 // Returns Mono.error to simulate failure
                 when(responseSpec.bodyToMono(Void.class))
